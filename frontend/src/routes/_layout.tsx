@@ -1,41 +1,63 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
+import { PackageSearch, ReceiptText, ShoppingBasket } from "lucide-react"
 
-import { Footer } from "@/components/Common/Footer"
-import AppSidebar from "@/components/Sidebar/AppSidebar"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
-import { isLoggedIn } from "@/hooks/useAuth"
+import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/_layout")({
   component: Layout,
-  beforeLoad: async () => {
-    if (!isLoggedIn()) {
-      throw redirect({
-        to: "/login",
-      })
-    }
-  },
 })
 
 function Layout() {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1 text-muted-foreground" />
-        </header>
-        <main className="flex-1 p-6 md:p-8">
-          <div className="mx-auto max-w-7xl">
-            <Outlet />
+    <div className="min-h-screen overflow-hidden bg-background text-foreground">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_34rem),radial-gradient(circle_at_top_right,rgba(132,204,22,0.12),transparent_30rem)]" />
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link to="/" className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <ShoppingBasket className="size-5" />
+            </span>
+            <div>
+              <p className="font-semibold tracking-tight">Shop Optimizer</p>
+              <p className="text-xs text-muted-foreground">
+                Croatian grocery intelligence
+              </p>
+            </div>
+          </Link>
+
+          <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
+            <a className="transition hover:text-foreground" href="#products">
+              Products
+            </a>
+            <a className="transition hover:text-foreground" href="#basket">
+              Basket
+            </a>
+            <a className="transition hover:text-foreground" href="#receipts">
+              Receipts
+            </a>
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <a href="#products">
+                <PackageSearch className="size-4" />
+                Browse products
+              </a>
+            </Button>
+            <Button size="sm" className="hidden sm:inline-flex" asChild>
+              <a href="#receipts">
+                <ReceiptText className="size-4" />
+                Receipt upload
+              </a>
+            </Button>
           </div>
-        </main>
-        <Footer />
-      </SidebarInset>
-    </SidebarProvider>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <Outlet />
+      </main>
+    </div>
   )
 }
 

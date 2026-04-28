@@ -8,7 +8,11 @@ from app.models.price_observation import PriceObservation
 from app.models.product import Product
 from app.models.retailer import ReailerEnum, Retailer
 from app.models.store import Store
-from app.services.price_csv_importer import LidlPriceCsvParser, PriceCsvImporter
+from app.services.price_csv_importer import (
+    KauflandPriceCsvParser,
+    LidlPriceCsvParser,
+    PriceCsvImporter,
+)
 
 
 def make_session() -> Session:
@@ -56,6 +60,42 @@ def make_lidl_row(
         "BARKOD": "",
         "KATEGORIJA_PROIZVODA": "Hrana",
     }
+
+
+def make_kaufland_row() -> dict[str, str]:
+    return {
+        "naziv proizvoda": "Ajax za staklo window & shiny 750 ml",
+        "šifra proizvoda": "00010016",
+        "marka proizvoda": "Ajax",
+        "neto količina(KG)": "0.750",
+        "jedinica mjere": "KOM",
+        "maloprod.cijena(EUR)": "       2,59",
+        "akc.cijena, A=akcija": "A",
+        "kol.jed.mj.": "1",
+        "jed.mj. (1 KOM/L/KG)": "L",
+        "cijena jed.mj.(EUR)": "1,72",
+        "MPC poseb.oblik prod": "       1,29",
+        "Najniža MPC u 30dana": "2,59",
+        "Sidrena cijena": "MPC 2.5.2025=2,59€",
+        "barkod": "3838447000195",
+        "kategorija proizvoda": "SREDSTVA ZA ČIŠĆENJE",
+    }
+
+
+def test_kaufland_parser_normalizes_tab_delimited_columns():
+    normalized = KauflandPriceCsvParser().normalize_row(make_kaufland_row())
+
+    assert normalized is not None
+    assert normalized.retailer_product_code == "00010016"
+    assert normalized.source_product_name == "Ajax za staklo window & shiny 750 ml"
+    assert normalized.barcode == "3838447000195"
+    assert normalized.brand == "Ajax"
+    assert normalized.net_quantity == "0.750"
+    assert normalized.unit_of_measure == "KOM"
+    assert normalized.category == "SREDSTVA ZA ČIŠĆENJE"
+    assert normalized.price_eur == Decimal("1.29")
+    assert normalized.unit_price_eur == Decimal("1.72")
+    assert normalized.is_special_sale is True
 
 
 def test_no_barcode_product_is_reused_by_retailer_product_code_across_stores():

@@ -85,3 +85,13 @@ def init_db(session: Session) -> None:
         address="Risnjačka ul. 1, 10000, Zagreb",
         prefix="Supermarket 209_Risnjačka ulica_1_10000_Zagreb_",
     )
+
+    get_or_create(
+        session,
+        Store,
+        retailer_id=ReailerEnum.KAUFLAND.value.id,
+        store_code="5930",
+        name="Kaufland Jablanska 80",
+        address="Jablanska ulica br. 80, Zagreb",
+        prefix="Hipermarket_Jablanska_ulica_br_80_Zagreb_5930_",
+    )

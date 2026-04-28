@@ -40,7 +40,7 @@ class ProductBase(SQLModel):
     )
     unit_of_measure: str | None = Field(
         default=None,
-        max_length=16,
+        max_length=64,
         description="Original CSV column: jedinica mjere or JEDINICA MJERE.",
     )
     category: str | None = Field(

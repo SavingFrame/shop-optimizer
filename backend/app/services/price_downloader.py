@@ -38,6 +38,15 @@ class LidlPriceListItem(BaseModel):
     url: str
 
 
+class KauflandPriceListItem(BaseModel):
+    label: str
+    path: str
+
+    @property
+    def url(self) -> str:
+        return urljoin(KauflandPriceDownloader.prices_base_url, self.path)
+
+
 class LidlPriceArchive(BaseModel):
     files: list[str]
     archive_content: bytes
@@ -80,6 +89,53 @@ class SparPriceDownloader(BasePriceDownloader):
             csv_text = response.content.decode("cp1250")
             reader = csv.DictReader(csv_text.splitlines(), delimiter=";")
         return reader
+
+
+class KauflandPriceDownloader(BasePriceDownloader):
+    prices_base_url = "https://www.kaufland.hr"
+    price_list_url = f"{prices_base_url}/akcije-novosti/popis-mpc.assetSearch.id=assetList_1599847924.json"
+
+    def download_prices_list(self, date: datetime.date) -> None:
+        with httpx.Client() as client:
+            response = client.get(self.price_list_url)
+            response.raise_for_status()
+            price_list_items = [
+                KauflandPriceListItem.model_validate(item) for item in response.json()
+            ]
+        date_str = date.strftime("%d%m%Y")
+        self._downloaded_prices = [
+            item for item in price_list_items if date_str in item.label.replace(" ", "")
+        ]
+
+    def download_price_csv_for_store(self, store: Store) -> csv.DictReader:
+        if not self._downloaded_prices:
+            raise ValueError(
+                "Price list not downloaded yet. Call download_prices_list first."
+            )
+        price_list_item = next(
+            (
+                item
+                for item in self._downloaded_prices
+                if self._matches_store(item.label, store)
+            ),
+            None,
+        )
+        if not price_list_item:
+            raise ValueError(
+                f"Price list for store with prefix {store.prefix} or code {store.store_code} not found."
+            )
+        with httpx.Client() as client:
+            response = client.get(price_list_item.url)
+            response.raise_for_status()
+            csv_text = response.content.decode("utf-8-sig")
+        return csv.DictReader(csv_text.splitlines(), delimiter="\t")
+
+    @staticmethod
+    def _matches_store(label: str, store: Store) -> bool:
+        normalized_label = label.replace(" ", "")
+        if store.prefix and normalized_label.startswith(store.prefix.replace(" ", "")):
+            return True
+        return f"_{store.store_code}_" in normalized_label
 
 
 class LidlPriceDownloader(BasePriceDownloader):

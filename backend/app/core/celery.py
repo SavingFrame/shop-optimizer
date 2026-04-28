@@ -10,11 +10,16 @@ from app.models.retailer import ReailerEnum
 from app.models.store import Store
 from app.services.openfoodfacts_product_images import OpenFoodFactsProductImageSyncer
 from app.services.price_csv_importer import (
+    KauflandPriceCsvParser,
     LidlPriceCsvParser,
     PriceCsvImporter,
     SparPriceCsvParser,
 )
-from app.services.price_downloader import LidlPriceDownloader, SparPriceDownloader
+from app.services.price_downloader import (
+    KauflandPriceDownloader,
+    LidlPriceDownloader,
+    SparPriceDownloader,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +43,11 @@ def download_csv(date: datetime.date | None = None):
     retailer_imports = [
         (ReailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
         (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
+        (
+            ReailerEnum.KAUFLAND.value.id,
+            KauflandPriceDownloader(),
+            KauflandPriceCsvParser(),
+        ),
     ]
 
     with Session(engine) as session:

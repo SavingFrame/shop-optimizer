@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/pagination"
 
 const productsSearchSchema = z.object({
+  page: z.coerce.number().int().positive().optional().catch(undefined),
   q: z.string().optional().catch(undefined),
 })
 
@@ -45,17 +46,19 @@ export const Route = createFileRoute("/_layout/products/")({
 })
 
 const PAGE_SIZE = 100
+const LAST_PRODUCTS_PATH_STORAGE_KEY = "products:last-path"
+const PRODUCTS_FORCE_TOP_STORAGE_PREFIX = "products:force-top"
+const PRODUCTS_SELECTED_PRODUCT_STORAGE_PREFIX = "products:selected-product"
 
 function ProductsPage() {
-  const { q } = Route.useSearch()
+  const { page: searchPage, q } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const page = searchPage ?? 1
   const normalizedQuery = q?.trim() ?? ""
   const [search, setSearch] = useState(q ?? "")
-  const [page, setPage] = useState(1)
 
   useEffect(() => {
     setSearch(q ?? "")
-    setPage(1)
   }, [q])
 
   useEffect(() => {
@@ -70,6 +73,7 @@ function ProductsPage() {
         replace: true,
         search: (previous) => ({
           ...previous,
+          page: undefined,
           q: nextQuery || undefined,
         }),
       })
@@ -95,9 +99,40 @@ function ProductsPage() {
 
   useEffect(() => {
     if (totalPages > 0 && page > totalPages) {
-      setPage(totalPages)
+      navigate({
+        replace: true,
+        search: (previous) => ({
+          ...previous,
+          page: getPageSearchValue(totalPages),
+        }),
+      })
     }
-  }, [page, totalPages])
+  }, [navigate, page, totalPages])
+
+  useEffect(() => {
+    saveLastProductsPath()
+  })
+
+  useEffect(() => {
+    if (isPending || isError) {
+      return
+    }
+
+    restoreProductsPosition()
+  }, [isError, isPending])
+
+  const handlePageChange = (nextPage: number) => {
+    const nextProductsPath = getProductsPath(nextPage)
+
+    markProductsPathForTopRestore(nextProductsPath)
+    navigate({
+      search: (previous) => ({
+        ...previous,
+        page: getPageSearchValue(nextPage),
+      }),
+    })
+    window.scrollTo({ top: 0, behavior: "auto" })
+  }
 
   return (
     <div className="space-y-8 pb-12">
@@ -192,7 +227,7 @@ function ProductsPage() {
 
           <ProductsPagination
             currentPage={page}
-            onPageChange={setPage}
+            onPageChange={handlePageChange}
             pageSize={PAGE_SIZE}
             totalCount={totalCount}
           />
@@ -200,6 +235,123 @@ function ProductsPage() {
       )}
     </div>
   )
+}
+
+function getPageSearchValue(page: number) {
+  return page > 1 ? page : undefined
+}
+
+function getProductsPath(page?: number) {
+  const searchParams = new URLSearchParams(window.location.search)
+
+  if (page === undefined || page <= 1) {
+    searchParams.delete("page")
+  } else {
+    searchParams.set("page", page.toString())
+  }
+
+  const search = searchParams.toString()
+  return `${window.location.pathname}${search ? `?${search}` : ""}`
+}
+
+function getProductsScrollStorageKey(path = getProductsPath()) {
+  return `products-scroll:${path}`
+}
+
+function getProductsForceTopStorageKey(path = getProductsPath()) {
+  return `${PRODUCTS_FORCE_TOP_STORAGE_PREFIX}:${path}`
+}
+
+function getProductsSelectedProductStorageKey(path = getProductsPath()) {
+  return `${PRODUCTS_SELECTED_PRODUCT_STORAGE_PREFIX}:${path}`
+}
+
+function saveLastProductsPath() {
+  window.sessionStorage.setItem(
+    LAST_PRODUCTS_PATH_STORAGE_KEY,
+    getProductsPath(),
+  )
+}
+
+function saveProductsScrollPosition(storageKey: string) {
+  window.sessionStorage.setItem(storageKey, window.scrollY.toString())
+}
+
+function saveProductsListPosition(productId: string) {
+  const productsPath = getProductsPath()
+
+  saveLastProductsPath()
+  saveProductsScrollPosition(getProductsScrollStorageKey(productsPath))
+  window.sessionStorage.setItem(
+    getProductsSelectedProductStorageKey(productsPath),
+    productId,
+  )
+}
+
+function markProductsPathForTopRestore(path: string) {
+  window.sessionStorage.setItem(getProductsForceTopStorageKey(path), "true")
+  window.sessionStorage.removeItem(getProductsSelectedProductStorageKey(path))
+  window.sessionStorage.removeItem(getProductsScrollStorageKey(path))
+}
+
+function restoreProductsPosition() {
+  const productsPath = getProductsPath()
+  const forceTopStorageKey = getProductsForceTopStorageKey(productsPath)
+
+  if (window.sessionStorage.getItem(forceTopStorageKey)) {
+    window.sessionStorage.removeItem(forceTopStorageKey)
+    requestScrollRestore(() => window.scrollTo({ top: 0, behavior: "auto" }))
+    return
+  }
+
+  const selectedProductId = window.sessionStorage.getItem(
+    getProductsSelectedProductStorageKey(productsPath),
+  )
+
+  if (selectedProductId) {
+    requestScrollRestore(() => {
+      const selectedProductElement = document.getElementById(
+        getProductCardElementId(selectedProductId),
+      )
+
+      if (selectedProductElement) {
+        selectedProductElement.scrollIntoView({
+          block: "center",
+          behavior: "auto",
+        })
+        return
+      }
+
+      restoreProductsScrollPosition(productsPath)
+    })
+    return
+  }
+
+  restoreProductsScrollPosition(productsPath)
+}
+
+function restoreProductsScrollPosition(productsPath: string) {
+  const savedScrollY = window.sessionStorage.getItem(
+    getProductsScrollStorageKey(productsPath),
+  )
+
+  if (!savedScrollY) {
+    return
+  }
+
+  requestScrollRestore(() => {
+    window.scrollTo({ top: Number(savedScrollY), behavior: "auto" })
+  })
+}
+
+function requestScrollRestore(callback: () => void) {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(callback)
+  })
+}
+
+function getProductCardElementId(productId: string) {
+  return `product-card-${productId}`
 }
 
 type ProductsPaginationProps = {
@@ -228,7 +380,6 @@ function ProductsPagination({
   const goToPage = (nextPage: number) => {
     const boundedPage = Math.min(Math.max(nextPage, 1), totalPages)
     onPageChange(boundedPage)
-    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   return (
@@ -343,6 +494,8 @@ function ProductCard({ product }: ProductCardProps) {
       to="/products/$productId"
       params={{ productId: product.id }}
       className="group rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      id={getProductCardElementId(product.id)}
+      onClick={() => saveProductsListPosition(product.id)}
     >
       <Card className="h-full overflow-hidden bg-card/80 transition duration-200 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-xl group-hover:shadow-primary/5">
         <ProductImage imageUrl={product.image_url} name={product.name} />

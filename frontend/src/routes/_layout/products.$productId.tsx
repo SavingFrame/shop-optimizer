@@ -11,7 +11,7 @@ import {
   Store,
   Tags,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   CartesianGrid,
   Line,
@@ -37,6 +37,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+
+const LAST_PRODUCTS_PATH_STORAGE_KEY = "products:last-path"
+
+type ProductsBackSearch = {
+  page?: number
+  q?: string
+}
 
 export const Route = createFileRoute("/_layout/products/$productId")({
   component: ProductDetailPage,
@@ -72,6 +79,7 @@ function ProductDetailPage() {
   const product = productQuery.data
   const prices = pricesQuery.data ?? []
   const lowestPrice = useMemo(() => findLowestPrice(prices), [prices])
+  const productsBackSearch = useProductsBackSearch()
 
   if (productQuery.isPending) {
     return (
@@ -87,6 +95,7 @@ function ProductDetailPage() {
       <ProductMessage
         title="Could not load product"
         description="Check that the product exists and that the backend is running."
+        productsBackSearch={productsBackSearch}
       />
     )
   }
@@ -94,7 +103,7 @@ function ProductDetailPage() {
   return (
     <div className="space-y-8 pb-12">
       <Button variant="ghost" asChild>
-        <Link to="/products">
+        <Link to="/products" search={productsBackSearch}>
           <ArrowLeft className="size-4" />
           Back to products
         </Link>
@@ -656,15 +665,20 @@ function InfoTile({ icon: Icon, label, value }: InfoTileProps) {
 }
 
 type ProductMessageProps = {
-  title: string
   description: string
+  productsBackSearch: ProductsBackSearch
+  title: string
 }
 
-function ProductMessage({ title, description }: ProductMessageProps) {
+function ProductMessage({
+  description,
+  productsBackSearch,
+  title,
+}: ProductMessageProps) {
   return (
     <div className="space-y-6 pb-12">
       <Button variant="ghost" asChild>
-        <Link to="/products">
+        <Link to="/products" search={productsBackSearch}>
           <ArrowLeft className="size-4" />
           Back to products
         </Link>
@@ -682,6 +696,32 @@ function ProductMessage({ title, description }: ProductMessageProps) {
       </Card>
     </div>
   )
+}
+
+function useProductsBackSearch() {
+  const [productsBackSearch, setProductsBackSearch] =
+    useState<ProductsBackSearch>({})
+
+  useEffect(() => {
+    const productsPath = window.sessionStorage.getItem(
+      LAST_PRODUCTS_PATH_STORAGE_KEY,
+    )
+
+    if (!productsPath) {
+      return
+    }
+
+    const productsUrl = new URL(productsPath, window.location.origin)
+    const page = Number(productsUrl.searchParams.get("page"))
+    const q = productsUrl.searchParams.get("q") ?? undefined
+
+    setProductsBackSearch({
+      page: Number.isInteger(page) && page > 1 ? page : undefined,
+      q,
+    })
+  }, [])
+
+  return productsBackSearch
 }
 
 function compareObservations(

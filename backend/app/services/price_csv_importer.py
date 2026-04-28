@@ -126,6 +126,25 @@ class SparPriceCsvParser(BaseRetailerPriceCsvParser):
     }
 
 
+class KauflandPriceCsvParser(BaseRetailerPriceCsvParser):
+    retailer_id = ReailerEnum.KAUFLAND.value.id
+    retailer_name = ReailerEnum.KAUFLAND.value.name
+    delimiter = "\t"
+    encoding = "utf-8-sig"
+    columns = {
+        "name": "naziv proizvoda",
+        "code": "šifra proizvoda",
+        "brand": "marka proizvoda",
+        "net_quantity": "neto količina(KG)",
+        "unit_of_measure": "jedinica mjere",
+        "retail_price": "maloprod.cijena(EUR)",
+        "unit_price": "cijena jed.mj.(EUR)",
+        "special_sale_price": "MPC poseb.oblik prod",
+        "barcode": "barkod",
+        "category": "kategorija proizvoda",
+    }
+
+
 class PriceCsvImporter:
     def __init__(
         self,

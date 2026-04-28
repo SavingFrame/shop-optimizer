@@ -6,7 +6,7 @@ from sqlmodel import Session, create_engine, select
 
 from app import crud
 from app.core.config import settings
-from app.models import User, UserCreate
+from app.models.user import User, UserCreate
 
 engine = create_engine(
     settings.SQLALCHEMY_DATABASE_URI,
@@ -21,7 +21,7 @@ def set_sqlite_pragma(dbapi_connection: Any, _connection_record: Any) -> None:
     cursor.close()
 
 
-# make sure all SQLModel models are imported (app.models) before initializing DB
+# make sure all SQLModel models are imported before initializing DB
 # otherwise, SQLModel might fail to initialize relationships properly
 # for more details: https://github.com/fastapi/full-stack-fastapi-template/issues/28
 
@@ -32,7 +32,7 @@ def init_db(session: Session) -> None:
     # the tables un-commenting the next lines
     # from sqlmodel import SQLModel
 
-    # This works because the models are already imported and registered from app.models
+    # This works because the models are already imported and registered
     # SQLModel.metadata.create_all(engine)
 
     user = session.exec(

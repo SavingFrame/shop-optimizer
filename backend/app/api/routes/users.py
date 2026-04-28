@@ -12,9 +12,9 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.models import (
-    Message,
-    UpdatePassword,
+from app.models.auth import UpdatePassword
+from app.models.common import Message
+from app.models.user import (
     User,
     UserCreate,
     UserPublic,

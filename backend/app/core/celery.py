@@ -33,8 +33,8 @@ celery.conf.beat_schedule = {
 
 
 @celery.task
-def download_csv():
-    today = datetime.date.today()
+def download_csv(date: datetime.date | None = None):
+    today = date or datetime.date.today()
     retailer_imports = [
         (ReailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
         (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),

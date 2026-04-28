@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class LoginService {
     /**
@@ -130,6 +130,7 @@ export class ProductsService {
      * @param data The data for the request.
      * @param data.skip
      * @param data.limit
+     * @param data.q
      * @returns ProductsPublic Successful Response
      * @throws ApiError
      */
@@ -139,7 +140,8 @@ export class ProductsService {
             url: '/api/v1/products/',
             query: {
                 skip: data.skip,
-                limit: data.limit
+                limit: data.limit,
+                q: data.q
             },
             errors: {
                 422: 'Validation Error'
@@ -178,6 +180,26 @@ export class ProductsService {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/v1/products/{product_id}/price-observations',
+            path: {
+                product_id: data.productId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Grouped Product Price Observations
+     * @param data The data for the request.
+     * @param data.productId
+     * @returns RetailerPriceObservationSummary Successful Response
+     * @throws ApiError
+     */
+    public static groupedProductPriceObservations(data: ProductsGroupedProductPriceObservationsData): CancelablePromise<ProductsGroupedProductPriceObservationsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/products/{product_id}/price-observations/grouped',
             path: {
                 product_id: data.productId
             },

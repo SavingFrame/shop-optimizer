@@ -5,18 +5,18 @@ import {
   Barcode,
   CalendarDays,
   ImageIcon,
+  type LucideIcon,
   PackageOpen,
   Ruler,
   Store,
   Tags,
-  type LucideIcon,
 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import {
-  type NestedPriceObservation,
   type ProductPublic,
   ProductsService,
+  type RetailerPriceObservationSummary,
 } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,8 +48,9 @@ function ProductDetailPage() {
   })
 
   const pricesQuery = useQuery({
-    queryKey: ["products", productId, "price-observations"],
-    queryFn: () => ProductsService.productPriceObservations({ productId }),
+    queryKey: ["products", productId, "price-observations", "grouped"],
+    queryFn: () =>
+      ProductsService.groupedProductPriceObservations({ productId }),
   })
 
   const product = productQuery.data
@@ -90,7 +91,7 @@ function ProductDetailPage() {
           <CardHeader>
             <CardTitle>Shop prices</CardTitle>
             <CardDescription>
-              Price observations loaded from the product price endpoint.
+              Retailer prices grouped from the latest available observations.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -112,8 +113,10 @@ function ProductDetailPage() {
           <CardContent className="space-y-3">
             <InfoTile
               icon={Store}
-              label="Observed prices"
-              value={pricesQuery.isPending ? "Loading" : prices.length.toString()}
+              label="Observed retailers"
+              value={
+                pricesQuery.isPending ? "Loading" : prices.length.toString()
+              }
             />
             <InfoTile
               icon={Tags}
@@ -172,7 +175,7 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
           <InfoTile icon={Barcode} label="Barcode" value={product.barcode} />
           <InfoTile
             icon={Store}
-            label="Shop prices"
+            label="Retailer prices"
             value={pricesCount.toString()}
           />
         </CardContent>
@@ -184,7 +187,7 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
 type PriceObservationsProps = {
   isError: boolean
   isPending: boolean
-  observations: Array<NestedPriceObservation>
+  observations: Array<RetailerPriceObservationSummary>
 }
 
 function PriceObservations({
@@ -236,7 +239,7 @@ function PriceObservations({
     <div className="space-y-3">
       {sortedObservations.map((observation) => (
         <PriceObservationRow
-          key={observation.id}
+          key={`${observation.retailer.id}-${observation.observed_date}`}
           observation={observation}
         />
       ))}
@@ -245,11 +248,19 @@ function PriceObservations({
 }
 
 type PriceObservationRowProps = {
-  observation: NestedPriceObservation
+  observation: RetailerPriceObservationSummary
 }
 
 function PriceObservationRow({ observation }: PriceObservationRowProps) {
-  const retailPrice = getRetailPrice(observation)
+  const retailPrice = getAveragePrice(observation)
+  const retailPriceRange = formatPriceRange(
+    getMinPrice(observation),
+    getMaxPrice(observation),
+  )
+  const unitPriceRange = formatPriceRange(
+    observation.min_unit_price_eur,
+    observation.max_unit_price_eur,
+  )
 
   return (
     <div className="rounded-2xl border bg-background/60 p-4">
@@ -257,14 +268,15 @@ function PriceObservationRow({ observation }: PriceObservationRowProps) {
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold">{observation.retailer.name}</p>
-            <Badge variant="secondary">{observation.store.name}</Badge>
+            <Badge variant="secondary">{observation.store_count} stores</Badge>
+            {(observation.has_store_price_variance ||
+              observation.has_store_special_sale_price_variance) && (
+              <Badge variant="outline">Price varies by store</Badge>
+            )}
           </div>
-          <p className="line-clamp-2 text-sm text-muted-foreground">
-            {observation.source_product_name}
-          </p>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span>{observation.observed_date}</span>
-            <span>Code {observation.retailer_product_code}</span>
+            <span>{observation.observation_count} observations</span>
           </div>
         </div>
 
@@ -273,11 +285,16 @@ function PriceObservationRow({ observation }: PriceObservationRowProps) {
             {retailPrice ? formatCurrency(retailPrice) : "No retail price"}
           </p>
           <p className="text-sm text-muted-foreground">
-            {formatCurrency(observation.unit_price_eur)} per unit
+            {formatCurrency(observation.average_unit_price_eur)} avg per unit
           </p>
-          {observation.special_sale_price_eur && (
+          <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
+            {retailPriceRange && <span>Price range {retailPriceRange}</span>}
+            {unitPriceRange && <span>Unit range {unitPriceRange}</span>}
+          </div>
+          {observation.average_special_sale_price_eur && (
             <Badge className="mt-2" variant="outline">
-              Sale {formatCurrency(observation.special_sale_price_eur)}
+              Avg sale{" "}
+              {formatCurrency(observation.average_special_sale_price_eur)}
             </Badge>
           )}
         </div>
@@ -363,11 +380,13 @@ function ProductMessage({ title, description }: ProductMessageProps) {
 }
 
 function compareObservations(
-  first: NestedPriceObservation,
-  second: NestedPriceObservation,
+  first: RetailerPriceObservationSummary,
+  second: RetailerPriceObservationSummary,
 ) {
-  const firstPrice = Number(getRetailPrice(first) ?? Number.POSITIVE_INFINITY)
-  const secondPrice = Number(getRetailPrice(second) ?? Number.POSITIVE_INFINITY)
+  const firstPrice = Number(getAveragePrice(first) ?? Number.POSITIVE_INFINITY)
+  const secondPrice = Number(
+    getAveragePrice(second) ?? Number.POSITIVE_INFINITY,
+  )
 
   if (firstPrice !== secondPrice) {
     return firstPrice - secondPrice
@@ -376,9 +395,9 @@ function compareObservations(
   return second.observed_date.localeCompare(first.observed_date)
 }
 
-function findLowestPrice(observations: Array<NestedPriceObservation>) {
+function findLowestPrice(observations: Array<RetailerPriceObservationSummary>) {
   return observations
-    .map(getRetailPrice)
+    .map(getMinPrice)
     .filter((price): price is string => Boolean(price))
     .sort((first, second) => Number(first) - Number(second))[0]
 }
@@ -390,7 +409,9 @@ function formatCurrency(value: string) {
   }).format(Number(value))
 }
 
-function formatLatestDate(observations: Array<NestedPriceObservation>) {
+function formatLatestDate(
+  observations: Array<RetailerPriceObservationSummary>,
+) {
   const latestDate = observations
     .map((observation) => observation.observed_date)
     .sort((first, second) => second.localeCompare(first))[0]
@@ -398,6 +419,29 @@ function formatLatestDate(observations: Array<NestedPriceObservation>) {
   return latestDate || undefined
 }
 
-function getRetailPrice(observation: NestedPriceObservation) {
-  return observation.special_sale_price_eur ?? observation.retail_price_eur
+function getAveragePrice(observation: RetailerPriceObservationSummary) {
+  return (
+    observation.average_special_sale_price_eur ??
+    observation.average_retail_price_eur
+  )
+}
+
+function getMinPrice(observation: RetailerPriceObservationSummary) {
+  return (
+    observation.min_special_sale_price_eur ?? observation.min_retail_price_eur
+  )
+}
+
+function getMaxPrice(observation: RetailerPriceObservationSummary) {
+  return (
+    observation.max_special_sale_price_eur ?? observation.max_retail_price_eur
+  )
+}
+
+function formatPriceRange(minPrice?: string | null, maxPrice?: string | null) {
+  if (!minPrice || !maxPrice || minPrice === maxPrice) {
+    return undefined
+  }
+
+  return `${formatCurrency(minPrice)} to ${formatCurrency(maxPrice)}`
 }

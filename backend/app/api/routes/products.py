@@ -1,28 +1,87 @@
+import re
 import uuid
+from datetime import date
+from decimal import Decimal
 from typing import ClassVar
 
 from fastapi import APIRouter, HTTPException
-from sqlmodel import func, select
+from sqlalchemy import literal_column
+from sqlmodel import SQLModel, func, select
 
 from app.api.deps import SessionDep
 from app.models.price_observation import PriceObservation, PriceObservationPublic
 from app.models.product import Product, ProductPublic, ProductsPublic
-from app.models.retailer import RetailerPublic
+from app.models.product_search import ProductSearchIndex
+from app.models.retailer import Retailer, RetailerPublic
 from app.models.store import StorePublic
 
 router = APIRouter(prefix="/products", tags=["products"])
 
+SEARCH_TOKEN_PATTERN = re.compile(r"\w+", re.UNICODE)
+
+
+def build_product_fts_query(search: str) -> str | None:
+    tokens = SEARCH_TOKEN_PATTERN.findall(search)
+    if not tokens:
+        return None
+    return " ".join(f'"{token}"*' for token in tokens)
+
 
 @router.get("/", response_model=ProductsPublic)
-def read_products(session: SessionDep, skip: int = 0, limit: int = 20):
+def read_products(
+    session: SessionDep,
+    skip: int = 0,
+    limit: int = 20,
+    q: str | None = None,
+):
+    search = q.strip() if q else None
 
-    count_statement = select(func.count()).select_from(Product)
-    count = session.exec(count_statement).one()
+    if not search:
+        count_statement = select(func.count()).select_from(Product)
+        count = session.exec(count_statement).one()
 
-    statement = select(Product).order_by(Product.id).offset(skip).limit(limit)
-    products = session.exec(statement).all()
+        statement = select(Product).order_by(Product.id).offset(skip).limit(limit)
+        products = session.exec(statement).all()
 
-    return ProductsPublic(count=count, data=products)
+        return ProductsPublic(count=count, data=products)
+
+    fts_query = build_product_fts_query(search)
+    product_rowid = literal_column("product.rowid")
+    product_fts = literal_column("product_fts")
+
+    matching_ids: list[uuid.UUID] = []
+
+    barcode_statement = select(Product.id).where(Product.barcode == search)
+    barcode_id = session.exec(barcode_statement).one_or_none()
+    if barcode_id is not None:
+        matching_ids.append(barcode_id)
+
+    if fts_query is not None:
+        fts_statement = (
+            select(Product.id)
+            .join(ProductSearchIndex, product_rowid == ProductSearchIndex.rowid)
+            .where(product_fts.op("MATCH")(fts_query))
+            .order_by(func.bm25(product_fts))
+        )
+        fts_ids = session.exec(fts_statement).all()
+        matching_ids.extend(fts_ids)
+
+    unique_matching_ids = list(dict.fromkeys(matching_ids))
+    count = len(unique_matching_ids)
+    page_ids = unique_matching_ids[skip : skip + limit]
+
+    if not page_ids:
+        return ProductsPublic(count=count, data=[])
+
+    products = session.exec(select(Product).where(Product.id.in_(page_ids))).all()
+    products_by_id = {product.id: product for product in products}
+    ordered_products = [
+        products_by_id[product_id]
+        for product_id in page_ids
+        if product_id in products_by_id
+    ]
+
+    return ProductsPublic(count=count, data=ordered_products)
 
 
 @router.get("/{product_id}", response_model=ProductPublic)
@@ -40,12 +99,130 @@ class NestedPriceObservation(PriceObservationPublic):
     store: StorePublic
 
 
+class RetailerPriceObservationSummary(SQLModel):
+    retailer: RetailerPublic
+    observed_date: date
+    average_retail_price_eur: Decimal | None
+    min_retail_price_eur: Decimal | None
+    max_retail_price_eur: Decimal | None
+    average_unit_price_eur: Decimal
+    min_unit_price_eur: Decimal
+    max_unit_price_eur: Decimal
+    average_special_sale_price_eur: Decimal | None
+    min_special_sale_price_eur: Decimal | None
+    max_special_sale_price_eur: Decimal | None
+    store_count: int
+    observation_count: int
+    has_store_price_variance: bool
+    has_store_special_sale_price_variance: bool
+
+
 @router.get(
-    "/{product_id}/price-observations", response_model=list[NestedPriceObservation]
+    "/{product_id}/price-observations",
+    response_model=list[NestedPriceObservation],
 )
 def product_price_observations(product_id: uuid.UUID, session: SessionDep):
-    statement = select(PriceObservation).where(
-        PriceObservation.product_id == product_id
+    statement = (
+        select(PriceObservation)
+        .where(PriceObservation.product_id == product_id)
+        .order_by(PriceObservation.retail_price_eur)
     )
     price_observations = session.exec(statement).all()
     return price_observations
+
+
+@router.get(
+    "/{product_id}/price-observations/grouped",
+    response_model=list[RetailerPriceObservationSummary],
+)
+def grouped_product_price_observations(product_id: uuid.UUID, session: SessionDep):
+    latest_observations = (
+        select(
+            PriceObservation.retailer_id,
+            func.max(PriceObservation.observed_date).label("observed_date"),
+        )
+        .where(PriceObservation.product_id == product_id)
+        .group_by(PriceObservation.retailer_id)
+        .subquery()
+    )
+
+    statement = (
+        select(
+            Retailer,
+            latest_observations.c.observed_date,
+            func.avg(PriceObservation.retail_price_eur).label(
+                "average_retail_price_eur",
+            ),
+            func.min(PriceObservation.retail_price_eur).label("min_retail_price_eur"),
+            func.max(PriceObservation.retail_price_eur).label("max_retail_price_eur"),
+            func.count(
+                func.distinct(func.coalesce(PriceObservation.retail_price_eur, -1)),
+            ).label("retail_price_variant_count"),
+            func.avg(PriceObservation.unit_price_eur).label("average_unit_price_eur"),
+            func.min(PriceObservation.unit_price_eur).label("min_unit_price_eur"),
+            func.max(PriceObservation.unit_price_eur).label("max_unit_price_eur"),
+            func.avg(PriceObservation.special_sale_price_eur).label(
+                "average_special_sale_price_eur",
+            ),
+            func.min(PriceObservation.special_sale_price_eur).label(
+                "min_special_sale_price_eur",
+            ),
+            func.max(PriceObservation.special_sale_price_eur).label(
+                "max_special_sale_price_eur",
+            ),
+            func.count(
+                func.distinct(
+                    func.coalesce(PriceObservation.special_sale_price_eur, -1)
+                ),
+            ).label("special_sale_price_variant_count"),
+            func.count(func.distinct(PriceObservation.store_id)).label("store_count"),
+            func.count(PriceObservation.id).label("observation_count"),
+        )
+        .join(Retailer, Retailer.id == PriceObservation.retailer_id)
+        .join(
+            latest_observations,
+            (latest_observations.c.retailer_id == PriceObservation.retailer_id)
+            & (latest_observations.c.observed_date == PriceObservation.observed_date),
+        )
+        .where(PriceObservation.product_id == product_id)
+        .group_by(Retailer.id, Retailer.name, latest_observations.c.observed_date)
+        .order_by(func.avg(PriceObservation.retail_price_eur))
+    )
+
+    rows = session.exec(statement).all()
+    return [
+        RetailerPriceObservationSummary(
+            retailer=retailer,
+            observed_date=observed_date,
+            average_retail_price_eur=average_retail_price_eur,
+            min_retail_price_eur=min_retail_price_eur,
+            max_retail_price_eur=max_retail_price_eur,
+            average_unit_price_eur=average_unit_price_eur,
+            min_unit_price_eur=min_unit_price_eur,
+            max_unit_price_eur=max_unit_price_eur,
+            average_special_sale_price_eur=average_special_sale_price_eur,
+            min_special_sale_price_eur=min_special_sale_price_eur,
+            max_special_sale_price_eur=max_special_sale_price_eur,
+            store_count=store_count,
+            observation_count=observation_count,
+            has_store_price_variance=retail_price_variant_count > 1,
+            has_store_special_sale_price_variance=special_sale_price_variant_count > 1,
+        )
+        for (
+            retailer,
+            observed_date,
+            average_retail_price_eur,
+            min_retail_price_eur,
+            max_retail_price_eur,
+            retail_price_variant_count,
+            average_unit_price_eur,
+            min_unit_price_eur,
+            max_unit_price_eur,
+            average_special_sale_price_eur,
+            min_special_sale_price_eur,
+            max_special_sale_price_eur,
+            special_sale_price_variant_count,
+            store_count,
+            observation_count,
+        ) in rows
+    ]

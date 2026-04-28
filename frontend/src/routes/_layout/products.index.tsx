@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import {
   Barcode,
   ChevronRight,
@@ -7,15 +7,30 @@ import {
   PackageSearch,
   Search,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
+import { z } from "zod"
 
 import { type ProductPublic, ProductsService } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+
+const productsSearchSchema = z.object({
+  q: z.string().optional().catch(undefined),
+})
 
 export const Route = createFileRoute("/_layout/products/")({
   component: ProductsPage,
+  validateSearch: productsSearchSchema,
   head: () => ({
     meta: [
       {
@@ -29,35 +44,60 @@ export const Route = createFileRoute("/_layout/products/")({
   }),
 })
 
+const PAGE_SIZE = 100
+
 function ProductsPage() {
-  const [search, setSearch] = useState("")
+  const { q } = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const normalizedQuery = q?.trim() ?? ""
+  const [search, setSearch] = useState(q ?? "")
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    setSearch(q ?? "")
+    setPage(1)
+  }, [q])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const nextQuery = search.trim()
+
+      if (nextQuery === normalizedQuery) {
+        return
+      }
+
+      navigate({
+        replace: true,
+        search: (previous) => ({
+          ...previous,
+          q: nextQuery || undefined,
+        }),
+      })
+    }, 300)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [navigate, normalizedQuery, search])
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => ProductsService.readProducts({ limit: 100, skip: 0 }),
+    queryKey: ["products", normalizedQuery, page],
+    queryFn: () =>
+      ProductsService.readProducts({
+        limit: PAGE_SIZE,
+        q: normalizedQuery || undefined,
+        skip: (page - 1) * PAGE_SIZE,
+      }),
+    placeholderData: keepPreviousData,
   })
 
   const products = data?.data ?? []
-  const filteredProducts = useMemo(() => {
-    const query = search.trim().toLowerCase()
+  const totalCount = data?.count ?? 0
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
-    if (!query) {
-      return products
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages) {
+      setPage(totalPages)
     }
-
-    return products.filter((product) =>
-      [
-        product.name,
-        product.brand,
-        product.category,
-        product.barcode,
-        product.net_quantity,
-        product.unit_of_measure,
-      ]
-        .filter(Boolean)
-        .some((value) => value?.toLowerCase().includes(query)),
-    )
-  }, [products, search])
+  }, [page, totalPages])
 
   return (
     <div className="space-y-8 pb-12">
@@ -72,8 +112,8 @@ function ProductsPage() {
               Search products
             </h1>
             <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-              Browse normalized grocery products. Search runs locally for now,
-              and can move to the backend when the API supports it.
+              Browse normalized grocery products. Search runs on the backend
+              with full-text matching for names, brands, and categories.
             </p>
           </div>
         </div>
@@ -85,7 +125,7 @@ function ProductsPage() {
               <Input
                 className="h-12 rounded-2xl pl-10 text-base"
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by name, brand, category, barcode..."
+                placeholder="Search by name, brand, category, or exact barcode..."
                 value={search}
               />
             </div>
@@ -95,14 +135,14 @@ function ProductsPage() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <SummaryCard
-          label="Total products"
-          value={(data?.count ?? 0).toString()}
+          label={normalizedQuery ? "Total matches" : "Total products"}
+          value={totalCount.toString()}
         />
+        <SummaryCard label="Shown" value={products.length.toString()} />
         <SummaryCard
-          label="Matching search"
-          value={filteredProducts.length.toString()}
+          label="Page"
+          value={totalPages > 0 ? `${page} / ${totalPages}` : "0 / 0"}
         />
-        <SummaryCard label="Search mode" value="Local" />
       </section>
 
       {isPending && (
@@ -128,7 +168,7 @@ function ProductsPage() {
         </Card>
       )}
 
-      {!isPending && !isError && filteredProducts.length === 0 && (
+      {!isPending && !isError && products.length === 0 && (
         <Card>
           <CardContent className="flex min-h-48 flex-col items-center justify-center gap-3 text-center">
             <PackageSearch className="size-10 text-muted-foreground" />
@@ -142,15 +182,137 @@ function ProductsPage() {
         </Card>
       )}
 
-      {!isPending && !isError && filteredProducts.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+      {!isPending && !isError && products.length > 0 && (
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+
+          <ProductsPagination
+            currentPage={page}
+            onPageChange={setPage}
+            pageSize={PAGE_SIZE}
+            totalCount={totalCount}
+          />
         </div>
       )}
     </div>
   )
+}
+
+type ProductsPaginationProps = {
+  currentPage: number
+  onPageChange: (page: number) => void
+  pageSize: number
+  totalCount: number
+}
+
+function ProductsPagination({
+  currentPage,
+  onPageChange,
+  pageSize,
+  totalCount,
+}: ProductsPaginationProps) {
+  const totalPages = Math.ceil(totalCount / pageSize)
+
+  if (totalPages <= 1) {
+    return null
+  }
+
+  const firstShown = (currentPage - 1) * pageSize + 1
+  const lastShown = Math.min(currentPage * pageSize, totalCount)
+  const pageItems = getPaginationItems(currentPage, totalPages)
+
+  const goToPage = (nextPage: number) => {
+    const boundedPage = Math.min(Math.max(nextPage, 1), totalPages)
+    onPageChange(boundedPage)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4 border-t pt-6">
+      <p className="text-sm text-muted-foreground">
+        Showing {firstShown}-{lastShown} of {totalCount} products
+      </p>
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              aria-disabled={currentPage === 1}
+              className={
+                currentPage === 1 ? "pointer-events-none opacity-50" : undefined
+              }
+              href="#"
+              onClick={(event) => {
+                event.preventDefault()
+                goToPage(currentPage - 1)
+              }}
+            />
+          </PaginationItem>
+
+          {pageItems.map((item, index) => (
+            <PaginationItem key={`${item}-${index}`}>
+              {item === "ellipsis" ? (
+                <PaginationEllipsis />
+              ) : (
+                <PaginationLink
+                  href="#"
+                  isActive={item === currentPage}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    goToPage(item)
+                  }}
+                >
+                  {item}
+                </PaginationLink>
+              )}
+            </PaginationItem>
+          ))}
+
+          <PaginationItem>
+            <PaginationNext
+              aria-disabled={currentPage === totalPages}
+              className={
+                currentPage === totalPages
+                  ? "pointer-events-none opacity-50"
+                  : undefined
+              }
+              href="#"
+              onClick={(event) => {
+                event.preventDefault()
+                goToPage(currentPage + 1)
+              }}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    </div>
+  )
+}
+
+function getPaginationItems(currentPage: number, totalPages: number) {
+  const pages = new Set([1, totalPages])
+
+  for (let page = currentPage - 1; page <= currentPage + 1; page += 1) {
+    if (page > 1 && page < totalPages) {
+      pages.add(page)
+    }
+  }
+
+  const sortedPages = Array.from(pages).sort((a, b) => a - b)
+  const items: Array<number | "ellipsis"> = []
+
+  for (const page of sortedPages) {
+    const previousItem = items[items.length - 1]
+    if (typeof previousItem === "number" && page - previousItem > 1) {
+      items.push("ellipsis")
+    }
+    items.push(page)
+  }
+
+  return items
 }
 
 type SummaryCardProps = {

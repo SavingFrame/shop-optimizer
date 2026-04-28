@@ -103,6 +103,24 @@ export type ProductsPublic = {
     count: number;
 };
 
+export type RetailerPriceObservationSummary = {
+    retailer: RetailerPublic;
+    observed_date: string;
+    average_retail_price_eur?: (string | null);
+    min_retail_price_eur?: (string | null);
+    max_retail_price_eur?: (string | null);
+    average_unit_price_eur: string;
+    min_unit_price_eur: string;
+    max_unit_price_eur: string;
+    average_special_sale_price_eur?: (string | null);
+    min_special_sale_price_eur?: (string | null);
+    max_special_sale_price_eur?: (string | null);
+    store_count: number;
+    observation_count: number;
+    has_store_price_variance: boolean;
+    has_store_special_sale_price_variance: boolean;
+};
+
 export type RetailerPublic = {
     /**
      * Retailer name, for example Konzum or Interspar.
@@ -223,6 +241,7 @@ export type PrivateCreateUserResponse = (UserPublic);
 
 export type ProductsReadProductsData = {
     limit?: number;
+    q?: (string | null);
     skip?: number;
 };
 
@@ -239,6 +258,12 @@ export type ProductsProductPriceObservationsData = {
 };
 
 export type ProductsProductPriceObservationsResponse = (Array<NestedPriceObservation>);
+
+export type ProductsGroupedProductPriceObservationsData = {
+    productId: string;
+};
+
+export type ProductsGroupedProductPriceObservationsResponse = (Array<RetailerPriceObservationSummary>);
 
 export type UsersReadUsersData = {
     limit?: number;

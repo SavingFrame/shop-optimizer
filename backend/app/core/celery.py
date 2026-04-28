@@ -5,7 +5,9 @@ from celery.schedules import crontab
 from sqlmodel import Session, select
 
 from app.core.db import engine
+from app.models.retailer import ReailerEnum
 from app.models.store import Store
+from app.services.price_csv_importer import PriceCsvImporter, SparPriceCsvParser
 from app.services.price_downloader import SparPriceDownloader
 
 celery = Celery(
@@ -28,11 +30,18 @@ def download_csv():
     today = datetime.date.today()
     downloader.download_prices_list(date=today)
 
+    importer = PriceCsvImporter(
+        parser=SparPriceCsvParser(),
+        observed_date=today,
+    )
     with Session(engine) as session:
-        stores = session.exec(select(Store)).all()
+        stores = session.exec(
+            select(Store).where(Store.retailer_id == ReailerEnum.SPAR.value.id)
+        ).all()
         for store in stores:
-            csv_reader = downloader.download_prices_for_store(store=store)
-            print(
-                f"Downloaded prices for store {store.name} from {store.retailer.name}:"
+            rows = downloader.download_price_csv_for_store(store=store)
+            importer.import_prices(
+                session=session,
+                rows=rows,
+                store=store,
             )
-            print(csv_reader.fieldnames)

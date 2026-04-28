@@ -57,7 +57,8 @@ class PriceObservation(PriceObservationBase, table=True):
             "store_id",
             "observed_date",
             "retailer_product_code",
-            name="uq_price_observation_retailer_store_date_code",
+            "product_id",
+            name="uq_price_observation_retailer_store_date_code_product",
         ),
     )
 

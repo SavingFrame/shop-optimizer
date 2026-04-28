@@ -16,7 +16,7 @@ class BasePriceDownloader(abc.ABC):
     def download_prices_list(self, date: datetime.date) -> None: ...
 
     @abc.abstractmethod
-    def download_prices_for_store(self, store: Store) -> csv.DictReader: ...
+    def download_price_csv_for_store(self, store: Store) -> csv.DictReader: ...
 
 
 class SparkPriceListItem(BaseModel):
@@ -42,21 +42,25 @@ class SparPriceDownloader(BasePriceDownloader):
             )
             self._downloaded_prices = price_list_response.files
 
-    def download_prices_for_store(self, store: Store) -> csv.DictReader:
+    def download_price_csv_for_store(self, store: Store) -> csv.DictReader:
         if not self._downloaded_prices:
             raise ValueError(
                 "Price list not downloaded yet. Call download_prices_list first."
             )
-        url = None
-        for price_list_item in self._downloaded_prices:
-            if price_list_item.name.startswith(store.prefix):
-                url = price_list_item.url
-        if not url:
+        price_list_item = next(
+            (
+                price_list_item
+                for price_list_item in self._downloaded_prices
+                if price_list_item.name.startswith(store.prefix)
+            ),
+            None,
+        )
+        if not price_list_item:
             raise ValueError(
                 f"Price list for store with prefix {store.prefix} not found."
             )
         with httpx.Client() as client:
-            response = client.get(url)
+            response = client.get(price_list_item.url)
             response.raise_for_status()
             # Spar CSV files are Windows-1250 encoded and semicolon-delimited.
             csv_text = response.content.decode("cp1250")

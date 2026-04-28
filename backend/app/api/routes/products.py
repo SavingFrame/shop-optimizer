@@ -1,7 +1,7 @@
 import uuid
 from typing import ClassVar
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlmodel import func, select
 
 from app.api.deps import SessionDep
@@ -26,9 +26,11 @@ def read_products(session: SessionDep, skip: int = 0, limit: int = 20):
 
 
 @router.get("/{product_id}", response_model=ProductPublic)
-def read_product(product_id: int, session: SessionDep):
+def read_product(product_id: uuid.UUID, session: SessionDep):
     statement = select(Product).where(Product.id == product_id)
     product = session.exec(statement).one_or_none()
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
     return product
 
 

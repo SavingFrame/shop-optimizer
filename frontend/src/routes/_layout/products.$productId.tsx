@@ -3,14 +3,21 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import {
   ArrowLeft,
   Barcode,
+  CalendarDays,
   ImageIcon,
   PackageOpen,
   Ruler,
   Store,
+  Tags,
+  type LucideIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
-import { ProductsService } from "@/client"
+import {
+  type NestedPriceObservation,
+  type ProductPublic,
+  ProductsService,
+} from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,14 +42,21 @@ export const Route = createFileRoute("/_layout/products/$productId")({
 function ProductDetailPage() {
   const { productId } = Route.useParams()
 
-  const { data, isPending, isError } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => ProductsService.readProducts({ limit: 100, skip: 0 }),
+  const productQuery = useQuery({
+    queryKey: ["products", productId],
+    queryFn: () => ProductsService.readProduct({ productId }),
   })
 
-  const product = data?.data.find((item) => item.id === productId)
+  const pricesQuery = useQuery({
+    queryKey: ["products", productId, "price-observations"],
+    queryFn: () => ProductsService.productPriceObservations({ productId }),
+  })
 
-  if (isPending) {
+  const product = productQuery.data
+  const prices = pricesQuery.data ?? []
+  const lowestPrice = useMemo(() => findLowestPrice(prices), [prices])
+
+  if (productQuery.isPending) {
     return (
       <div className="space-y-6 pb-12">
         <div className="h-10 w-36 animate-pulse rounded-full bg-card" />
@@ -51,20 +65,11 @@ function ProductDetailPage() {
     )
   }
 
-  if (isError) {
+  if (productQuery.isError || !product) {
     return (
       <ProductMessage
         title="Could not load product"
-        description="Check that the backend is running and the generated API client points to the correct URL."
-      />
-    )
-  }
-
-  if (!product) {
-    return (
-      <ProductMessage
-        title="Product not found"
-        description="This product is not in the current loaded product page. A dedicated backend detail endpoint can remove this limitation later."
+        description="Check that the product exists and that the backend is running."
       />
     )
   }
@@ -78,82 +83,205 @@ function ProductDetailPage() {
         </Link>
       </Button>
 
-      <section className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
-        <Card className="overflow-hidden bg-card/80">
-          <ProductImage imageUrl={product.image_url} name={product.name} />
-        </Card>
+      <ProductHero product={product} pricesCount={prices.length} />
 
-        <Card className="bg-card/80">
-          <CardHeader className="gap-4 p-6 sm:p-8">
-            <div className="flex flex-wrap gap-2">
-              {product.category && (
-                <Badge variant="secondary">{product.category}</Badge>
-              )}
-              {product.brand && (
-                <Badge variant="outline">{product.brand}</Badge>
-              )}
-            </div>
-            <div className="space-y-3">
-              <CardTitle className="text-3xl leading-tight sm:text-5xl">
-                {product.name}
-              </CardTitle>
-              <CardDescription className="text-base leading-7">
-                Product detail page placeholder. Prices, shop availability, and
-                price history can be connected here when those endpoints are
-                ready.
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-3 p-6 pt-0 sm:grid-cols-2 sm:p-8 sm:pt-0">
-            <InfoTile
-              icon={PackageOpen}
-              label="Quantity"
-              value={product.net_quantity}
-            />
-            <InfoTile
-              icon={Ruler}
-              label="Unit"
-              value={product.unit_of_measure}
-            />
-            <InfoTile icon={Barcode} label="Barcode" value={product.barcode} />
-            <InfoTile icon={Store} label="Shop prices" value="Coming soon" />
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Price comparison</CardTitle>
+            <CardTitle>Shop prices</CardTitle>
             <CardDescription>
-              This section will show every shop price for this product.
+              Price observations loaded from the product price endpoint.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <PlaceholderRows labels={["Konzum", "Lidl", "Kaufland"]} />
+            <PriceObservations
+              isError={pricesQuery.isError}
+              isPending={pricesQuery.isPending}
+              observations={prices}
+            />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Price history</CardTitle>
+            <CardTitle>Price summary</CardTitle>
             <CardDescription>
-              This section will become a chart when history data is available.
+              A quick view of available shop data for this product.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex h-48 items-end gap-3 rounded-2xl border bg-background/60 p-4">
-              {[44, 68, 52, 80, 64, 72, 58].map((height, index) => (
-                <div
-                  className="flex-1 rounded-t-xl bg-primary/70"
-                  key={index}
-                  style={{ height: `${height}%` }}
-                />
-              ))}
-            </div>
+          <CardContent className="space-y-3">
+            <InfoTile
+              icon={Store}
+              label="Observed prices"
+              value={pricesQuery.isPending ? "Loading" : prices.length.toString()}
+            />
+            <InfoTile
+              icon={Tags}
+              label="Lowest retail price"
+              value={lowestPrice ? formatCurrency(lowestPrice) : undefined}
+            />
+            <InfoTile
+              icon={CalendarDays}
+              label="Latest observation"
+              value={formatLatestDate(prices)}
+            />
           </CardContent>
         </Card>
       </section>
+    </div>
+  )
+}
+
+type ProductHeroProps = {
+  pricesCount: number
+  product: ProductPublic
+}
+
+function ProductHero({ pricesCount, product }: ProductHeroProps) {
+  return (
+    <section className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
+      <Card className="overflow-hidden bg-card/80">
+        <ProductImage imageUrl={product.image_url} name={product.name} />
+      </Card>
+
+      <Card className="bg-card/80">
+        <CardHeader className="gap-4 p-6 sm:p-8">
+          <div className="flex flex-wrap gap-2">
+            {product.category && (
+              <Badge variant="secondary">{product.category}</Badge>
+            )}
+            {product.brand && <Badge variant="outline">{product.brand}</Badge>}
+          </div>
+          <div className="space-y-3">
+            <CardTitle className="text-3xl leading-tight sm:text-5xl">
+              {product.name}
+            </CardTitle>
+            <CardDescription className="text-base leading-7">
+              Compare current shop price observations for this normalized
+              product.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-3 p-6 pt-0 sm:grid-cols-2 sm:p-8 sm:pt-0">
+          <InfoTile
+            icon={PackageOpen}
+            label="Quantity"
+            value={product.net_quantity}
+          />
+          <InfoTile icon={Ruler} label="Unit" value={product.unit_of_measure} />
+          <InfoTile icon={Barcode} label="Barcode" value={product.barcode} />
+          <InfoTile
+            icon={Store}
+            label="Shop prices"
+            value={pricesCount.toString()}
+          />
+        </CardContent>
+      </Card>
+    </section>
+  )
+}
+
+type PriceObservationsProps = {
+  isError: boolean
+  isPending: boolean
+  observations: Array<NestedPriceObservation>
+}
+
+function PriceObservations({
+  isError,
+  isPending,
+  observations,
+}: PriceObservationsProps) {
+  const sortedObservations = useMemo(
+    () => [...observations].sort(compareObservations),
+    [observations],
+  )
+
+  if (isPending) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            className="h-24 animate-pulse rounded-2xl border bg-background/60"
+            key={index}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
+        Could not load product price observations.
+      </div>
+    )
+  }
+
+  if (sortedObservations.length === 0) {
+    return (
+      <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-2xl border bg-background/60 p-6 text-center">
+        <Store className="size-10 text-muted-foreground" />
+        <div>
+          <p className="font-medium">No price observations yet</p>
+          <p className="text-sm text-muted-foreground">
+            This product does not have imported shop prices.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {sortedObservations.map((observation) => (
+        <PriceObservationRow
+          key={observation.id}
+          observation={observation}
+        />
+      ))}
+    </div>
+  )
+}
+
+type PriceObservationRowProps = {
+  observation: NestedPriceObservation
+}
+
+function PriceObservationRow({ observation }: PriceObservationRowProps) {
+  const retailPrice = getRetailPrice(observation)
+
+  return (
+    <div className="rounded-2xl border bg-background/60 p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold">{observation.retailer.name}</p>
+            <Badge variant="secondary">{observation.store.name}</Badge>
+          </div>
+          <p className="line-clamp-2 text-sm text-muted-foreground">
+            {observation.source_product_name}
+          </p>
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+            <span>{observation.observed_date}</span>
+            <span>Code {observation.retailer_product_code}</span>
+          </div>
+        </div>
+
+        <div className="shrink-0 text-left sm:text-right">
+          <p className="text-2xl font-semibold tracking-tight">
+            {retailPrice ? formatCurrency(retailPrice) : "No retail price"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {formatCurrency(observation.unit_price_eur)} per unit
+          </p>
+          {observation.special_sale_price_eur && (
+            <Badge className="mt-2" variant="outline">
+              Sale {formatCurrency(observation.special_sale_price_eur)}
+            </Badge>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -190,7 +318,7 @@ function ProductImage({ imageUrl, name }: ProductImageProps) {
 }
 
 type InfoTileProps = {
-  icon: typeof PackageOpen
+  icon: LucideIcon
   label: string
   value?: string | null
 }
@@ -201,33 +329,6 @@ function InfoTile({ icon: Icon, label, value }: InfoTileProps) {
       <Icon className="mb-3 size-5 text-primary" />
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-1 font-semibold">{value || "Not available"}</p>
-    </div>
-  )
-}
-
-type PlaceholderRowsProps = {
-  labels: Array<string>
-}
-
-function PlaceholderRows({ labels }: PlaceholderRowsProps) {
-  return (
-    <div className="space-y-3">
-      {labels.map((label, index) => (
-        <div
-          className="flex items-center justify-between rounded-2xl border bg-background/60 p-4"
-          key={label}
-        >
-          <div>
-            <p className="font-medium">{label}</p>
-            <p className="text-sm text-muted-foreground">
-              Price endpoint pending
-            </p>
-          </div>
-          <Badge variant={index === 0 ? "default" : "secondary"}>
-            Coming soon
-          </Badge>
-        </div>
-      ))}
     </div>
   )
 }
@@ -259,4 +360,44 @@ function ProductMessage({ title, description }: ProductMessageProps) {
       </Card>
     </div>
   )
+}
+
+function compareObservations(
+  first: NestedPriceObservation,
+  second: NestedPriceObservation,
+) {
+  const firstPrice = Number(getRetailPrice(first) ?? Number.POSITIVE_INFINITY)
+  const secondPrice = Number(getRetailPrice(second) ?? Number.POSITIVE_INFINITY)
+
+  if (firstPrice !== secondPrice) {
+    return firstPrice - secondPrice
+  }
+
+  return second.observed_date.localeCompare(first.observed_date)
+}
+
+function findLowestPrice(observations: Array<NestedPriceObservation>) {
+  return observations
+    .map(getRetailPrice)
+    .filter((price): price is string => Boolean(price))
+    .sort((first, second) => Number(first) - Number(second))[0]
+}
+
+function formatCurrency(value: string) {
+  return new Intl.NumberFormat("hr-HR", {
+    currency: "EUR",
+    style: "currency",
+  }).format(Number(value))
+}
+
+function formatLatestDate(observations: Array<NestedPriceObservation>) {
+  const latestDate = observations
+    .map((observation) => observation.observed_date)
+    .sort((first, second) => second.localeCompare(first))[0]
+
+  return latestDate || undefined
+}
+
+function getRetailPrice(observation: NestedPriceObservation) {
+  return observation.special_sale_price_eur ?? observation.retail_price_eur
 }

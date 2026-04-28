@@ -18,6 +18,7 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutProductsRouteImport } from './routes/_layout/products'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutProductsIndexRouteImport } from './routes/_layout/products.index'
 import { Route as LayoutProductsProductIdRouteImport } from './routes/_layout/products.$productId'
 
 const SignupRoute = SignupRouteImport.update({
@@ -64,6 +65,11 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutProductsIndexRoute = LayoutProductsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutProductsRoute,
+} as any)
 const LayoutProductsProductIdRoute = LayoutProductsProductIdRouteImport.update({
   id: '/$productId',
   path: '/$productId',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/products': typeof LayoutProductsRouteWithChildren
   '/settings': typeof LayoutSettingsRoute
   '/products/$productId': typeof LayoutProductsProductIdRoute
+  '/products/': typeof LayoutProductsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -87,10 +94,10 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
-  '/products': typeof LayoutProductsRouteWithChildren
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
   '/products/$productId': typeof LayoutProductsProductIdRoute
+  '/products': typeof LayoutProductsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +111,7 @@ export interface FileRoutesById {
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/products/$productId': typeof LayoutProductsProductIdRoute
+  '/_layout/products/': typeof LayoutProductsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +125,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/settings'
     | '/products/$productId'
+    | '/products/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -124,10 +133,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
-    | '/products'
     | '/settings'
     | '/'
     | '/products/$productId'
+    | '/products'
   id:
     | '__root__'
     | '/_layout'
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
     | '/_layout/settings'
     | '/_layout/'
     | '/_layout/products/$productId'
+    | '/_layout/products/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -215,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/products/': {
+      id: '/_layout/products/'
+      path: '/'
+      fullPath: '/products/'
+      preLoaderRoute: typeof LayoutProductsIndexRouteImport
+      parentRoute: typeof LayoutProductsRoute
+    }
     '/_layout/products/$productId': {
       id: '/_layout/products/$productId'
       path: '/$productId'
@@ -227,10 +244,12 @@ declare module '@tanstack/react-router' {
 
 interface LayoutProductsRouteChildren {
   LayoutProductsProductIdRoute: typeof LayoutProductsProductIdRoute
+  LayoutProductsIndexRoute: typeof LayoutProductsIndexRoute
 }
 
 const LayoutProductsRouteChildren: LayoutProductsRouteChildren = {
   LayoutProductsProductIdRoute: LayoutProductsProductIdRoute,
+  LayoutProductsIndexRoute: LayoutProductsIndexRoute,
 }
 
 const LayoutProductsRouteWithChildren = LayoutProductsRoute._addFileChildren(

@@ -83,6 +83,103 @@ export const MessageSchema = {
     title: 'Message'
 } as const;
 
+export const NestedPriceObservationSchema = {
+    properties: {
+        product_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product Id'
+        },
+        retailer_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Retailer Id'
+        },
+        store_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Store Id'
+        },
+        observed_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Observed Date',
+            description: 'Date of the price list or observation.'
+        },
+        retailer_product_code: {
+            type: 'string',
+            maxLength: 32,
+            title: 'Retailer Product Code',
+            description: 'Retailer scoped product code. Original CSV column: šifra or ŠIFRA PROIZVODA.'
+        },
+        source_product_name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Source Product Name',
+            description: 'Product name exactly as it appeared in the source price list.'
+        },
+        retail_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Retail Price Eur',
+            description: 'Original CSV column: MPC (EUR) or MALOPRODAJNA CIJENA.'
+        },
+        unit_price_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Unit Price Eur',
+            description: 'Original CSV column: cijena za jedinicu mjere (EUR) or CIJENA ZA JEDINICU MJERE.'
+        },
+        special_sale_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Special Sale Price Eur',
+            description: 'Original CSV column: MPC za vrijeme posebnog oblika prodaje (EUR) or MPC ZA VRIJEME POSEBNOG OBLIKA PRODAJE.'
+        },
+        source_file_name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Source File Name',
+            description: 'Name of the imported source CSV file.'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        retailer: {
+            '$ref': '#/components/schemas/RetailerPublic'
+        },
+        store: {
+            '$ref': '#/components/schemas/StorePublic'
+        }
+    },
+    type: 'object',
+    required: ['product_id', 'retailer_id', 'store_id', 'observed_date', 'retailer_product_code', 'source_product_name', 'unit_price_eur', 'id', 'retailer', 'store'],
+    title: 'NestedPriceObservation'
+} as const;
+
 export const NewPasswordSchema = {
     properties: {
         token: {
@@ -240,6 +337,69 @@ export const ProductsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ProductsPublic'
+} as const;
+
+export const RetailerPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 64,
+            title: 'Name',
+            description: 'Retailer name, for example Konzum or Interspar.'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        }
+    },
+    type: 'object',
+    required: ['name', 'id'],
+    title: 'RetailerPublic'
+} as const;
+
+export const StorePublicSchema = {
+    properties: {
+        retailer_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Retailer Id'
+        },
+        store_code: {
+            type: 'string',
+            maxLength: 64,
+            title: 'Store Code',
+            description: 'Retailer scoped store code from the source file or retailer data.'
+        },
+        name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Name',
+            description: 'Store name, for example a branch or supermarket name.'
+        },
+        address: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Address',
+            description: 'Store address when available.',
+            default: ''
+        },
+        prefix: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Prefix',
+            description: 'Prefix to be used in finding corresponding file in list of stores',
+            default: ''
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        }
+    },
+    type: 'object',
+    required: ['retailer_id', 'store_code', 'name', 'id'],
+    title: 'StorePublic'
 } as const;
 
 export const TokenSchema = {

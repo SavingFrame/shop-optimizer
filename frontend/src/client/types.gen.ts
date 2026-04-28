@@ -17,6 +17,43 @@ export type Message = {
     message: string;
 };
 
+export type NestedPriceObservation = {
+    product_id: string;
+    retailer_id: string;
+    store_id: string;
+    /**
+     * Date of the price list or observation.
+     */
+    observed_date: string;
+    /**
+     * Retailer scoped product code. Original CSV column: šifra or ŠIFRA PROIZVODA.
+     */
+    retailer_product_code: string;
+    /**
+     * Product name exactly as it appeared in the source price list.
+     */
+    source_product_name: string;
+    /**
+     * Original CSV column: MPC (EUR) or MALOPRODAJNA CIJENA.
+     */
+    retail_price_eur?: (string | null);
+    /**
+     * Original CSV column: cijena za jedinicu mjere (EUR) or CIJENA ZA JEDINICU MJERE.
+     */
+    unit_price_eur: string;
+    /**
+     * Original CSV column: MPC za vrijeme posebnog oblika prodaje (EUR) or MPC ZA VRIJEME POSEBNOG OBLIKA PRODAJE.
+     */
+    special_sale_price_eur?: (string | null);
+    /**
+     * Name of the imported source CSV file.
+     */
+    source_file_name?: (string | null);
+    id: string;
+    retailer: RetailerPublic;
+    store: StorePublic;
+};
+
 export type NewPassword = {
     token: string;
     new_password: string;
@@ -64,6 +101,35 @@ export type ProductPublic = {
 export type ProductsPublic = {
     data: Array<ProductPublic>;
     count: number;
+};
+
+export type RetailerPublic = {
+    /**
+     * Retailer name, for example Konzum or Interspar.
+     */
+    name: string;
+    id: string;
+};
+
+export type StorePublic = {
+    retailer_id: string;
+    /**
+     * Retailer scoped store code from the source file or retailer data.
+     */
+    store_code: string;
+    /**
+     * Store name, for example a branch or supermarket name.
+     */
+    name: string;
+    /**
+     * Store address when available.
+     */
+    address?: string;
+    /**
+     * Prefix to be used in finding corresponding file in list of stores
+     */
+    prefix?: string;
+    id: string;
 };
 
 export type Token = {
@@ -161,6 +227,18 @@ export type ProductsReadProductsData = {
 };
 
 export type ProductsReadProductsResponse = (ProductsPublic);
+
+export type ProductsReadProductData = {
+    productId: string;
+};
+
+export type ProductsReadProductResponse = (ProductPublic);
+
+export type ProductsProductPriceObservationsData = {
+    productId: string;
+};
+
+export type ProductsProductPriceObservationsResponse = (Array<NestedPriceObservation>);
 
 export type UsersReadUsersData = {
     limit?: number;

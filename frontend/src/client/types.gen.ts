@@ -29,6 +29,43 @@ export type PrivateUserCreate = {
     is_verified?: boolean;
 };
 
+export type ProductPublic = {
+    /**
+     * Cross retailer product identifier when present. Original CSV column: barkod or BARKOD.
+     */
+    barcode?: (string | null);
+    /**
+     * Canonical or first seen product name. Original CSV column: naziv or NAZIV PROIZVODA.
+     */
+    name: string;
+    /**
+     * Original CSV column: marka or MARKA PROIZVODA.
+     */
+    brand?: (string | null);
+    /**
+     * Raw net quantity from the CSV. Original CSV column: neto količina or NETO KOLIČINA.
+     */
+    net_quantity?: (string | null);
+    /**
+     * Original CSV column: jedinica mjere or JEDINICA MJERE.
+     */
+    unit_of_measure?: (string | null);
+    /**
+     * Original CSV column: kategorija proizvoda or KATEGORIJA PROIZVODA.
+     */
+    category?: (string | null);
+    /**
+     * Product image URL fetched from Open Food Facts.
+     */
+    image_url?: (string | null);
+    id: string;
+};
+
+export type ProductsPublic = {
+    data: Array<ProductPublic>;
+    count: number;
+};
+
 export type Token = {
     access_token: string;
     token_type?: string;
@@ -117,6 +154,13 @@ export type PrivateCreateUserData = {
 };
 
 export type PrivateCreateUserResponse = (UserPublic);
+
+export type ProductsReadProductsData = {
+    limit?: number;
+    skip?: number;
+};
+
+export type ProductsReadProductsResponse = (ProductsPublic);
 
 export type UsersReadUsersData = {
     limit?: number;

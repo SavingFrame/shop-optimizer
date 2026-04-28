@@ -42,6 +42,11 @@ class ProductBase(SQLModel):
         max_length=64,
         description="Original CSV column: kategorija proizvoda or KATEGORIJA PROIZVODA.",
     )
+    image_url: str | None = Field(
+        default=None,
+        max_length=2048,
+        description="Product image URL fetched from Open Food Facts.",
+    )
 
 
 class Product(ProductBase, table=True):

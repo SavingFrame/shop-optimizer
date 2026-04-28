@@ -126,6 +126,122 @@ export const PrivateUserCreateSchema = {
     title: 'PrivateUserCreate'
 } as const;
 
+export const ProductPublicSchema = {
+    properties: {
+        barcode: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 32
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Barcode',
+            description: 'Cross retailer product identifier when present. Original CSV column: barkod or BARKOD.'
+        },
+        name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Name',
+            description: 'Canonical or first seen product name. Original CSV column: naziv or NAZIV PROIZVODA.'
+        },
+        brand: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 64
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Brand',
+            description: 'Original CSV column: marka or MARKA PROIZVODA.'
+        },
+        net_quantity: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 32
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Net Quantity',
+            description: 'Raw net quantity from the CSV. Original CSV column: neto količina or NETO KOLIČINA.'
+        },
+        unit_of_measure: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 16
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Unit Of Measure',
+            description: 'Original CSV column: jedinica mjere or JEDINICA MJERE.'
+        },
+        category: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 64
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Category',
+            description: 'Original CSV column: kategorija proizvoda or KATEGORIJA PROIZVODA.'
+        },
+        image_url: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2048
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Image Url',
+            description: 'Product image URL fetched from Open Food Facts.'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        }
+    },
+    type: 'object',
+    required: ['name', 'id'],
+    title: 'ProductPublic'
+} as const;
+
+export const ProductsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ProductPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ProductsPublic'
+} as const;
+
 export const TokenSchema = {
     properties: {
         access_token: {

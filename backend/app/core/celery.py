@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from celery import Celery
 from celery.schedules import crontab
@@ -7,12 +8,15 @@ from sqlmodel import Session, select
 from app.core.db import engine
 from app.models.retailer import ReailerEnum
 from app.models.store import Store
+from app.services.openfoodfacts_product_images import OpenFoodFactsProductImageSyncer
 from app.services.price_csv_importer import (
     LidlPriceCsvParser,
     PriceCsvImporter,
     SparPriceCsvParser,
 )
 from app.services.price_downloader import LidlPriceDownloader, SparPriceDownloader
+
+logger = logging.getLogger(__name__)
 
 celery = Celery(
     "worker",
@@ -42,8 +46,9 @@ def download_csv():
                 select(Store).where(Store.retailer_id == retailer_id)
             ).all()
             if not stores:
-                print(
-                    f"No stores found for retailer {parser.retailer_name}, skipping CSV import."
+                logger.info(
+                    "No stores found for retailer %s, skipping CSV import.",
+                    parser.retailer_name,
                 )
                 continue
 
@@ -59,3 +64,12 @@ def download_csv():
                     rows=rows,
                     store=store,
                 )
+
+
+@celery.task
+def sync_product_images(limit: int | None = None):
+    with Session(engine) as session:
+        OpenFoodFactsProductImageSyncer().sync_missing_product_images(
+            session=session,
+            limit=limit,
+        )

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -108,10 +108,10 @@ function Dashboard() {
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button size="lg" asChild>
-                <a href="#products">
+                <Link to="/products">
                   <Search className="size-4" />
                   Browse products
-                </a>
+                </Link>
               </Button>
               <Button variant="outline" size="lg" asChild>
                 <a href="#basket">

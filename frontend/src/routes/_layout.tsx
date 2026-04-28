@@ -26,9 +26,9 @@ function Layout() {
           </Link>
 
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-            <a className="transition hover:text-foreground" href="#products">
+            <Link className="transition hover:text-foreground" to="/products">
               Products
-            </a>
+            </Link>
             <a className="transition hover:text-foreground" href="#basket">
               Basket
             </a>
@@ -39,10 +39,10 @@ function Layout() {
 
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
-              <a href="#products">
+              <Link to="/products">
                 <PackageSearch className="size-4" />
                 Browse products
-              </a>
+              </Link>
             </Button>
             <Button size="sm" className="hidden sm:inline-flex" asChild>
               <a href="#receipts">

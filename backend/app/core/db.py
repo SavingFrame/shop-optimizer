@@ -75,3 +75,13 @@ def init_db(session: Session) -> None:
         address="Kolakova 14",
         prefix="hipermarket_zagreb_kolakova_14__dubrava_8711_interspar_zg_garden_dub._",
     )
+
+    get_or_create(
+        session,
+        Store,
+        retailer_id=ReailerEnum.LIDL.value.id,
+        store_code="209",
+        name="Lidl Risnjačka 1",
+        address="Risnjačka ul. 1, 10000, Zagreb",
+        prefix="Supermarket 209_Risnjačka ulica_1_10000_Zagreb_",
+    )

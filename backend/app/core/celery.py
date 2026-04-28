@@ -7,8 +7,12 @@ from sqlmodel import Session, select
 from app.core.db import engine
 from app.models.retailer import ReailerEnum
 from app.models.store import Store
-from app.services.price_csv_importer import PriceCsvImporter, SparPriceCsvParser
-from app.services.price_downloader import SparPriceDownloader
+from app.services.price_csv_importer import (
+    LidlPriceCsvParser,
+    PriceCsvImporter,
+    SparPriceCsvParser,
+)
+from app.services.price_downloader import LidlPriceDownloader, SparPriceDownloader
 
 celery = Celery(
     "worker",
@@ -26,22 +30,32 @@ celery.conf.beat_schedule = {
 
 @celery.task
 def download_csv():
-    downloader = SparPriceDownloader()
     today = datetime.date.today()
-    downloader.download_prices_list(date=today)
+    retailer_imports = [
+        (ReailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
+        (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
+    ]
 
-    importer = PriceCsvImporter(
-        parser=SparPriceCsvParser(),
-        observed_date=today,
-    )
     with Session(engine) as session:
-        stores = session.exec(
-            select(Store).where(Store.retailer_id == ReailerEnum.SPAR.value.id)
-        ).all()
-        for store in stores:
-            rows = downloader.download_price_csv_for_store(store=store)
-            importer.import_prices(
-                session=session,
-                rows=rows,
-                store=store,
+        for retailer_id, downloader, parser in retailer_imports:
+            stores = session.exec(
+                select(Store).where(Store.retailer_id == retailer_id)
+            ).all()
+            if not stores:
+                print(
+                    f"No stores found for retailer {parser.retailer_name}, skipping CSV import."
+                )
+                continue
+
+            downloader.download_prices_list(date=today)
+            importer = PriceCsvImporter(
+                parser=parser,
+                observed_date=today,
             )
+            for store in stores:
+                rows = downloader.download_price_csv_for_store(store=store)
+                importer.import_prices(
+                    session=session,
+                    rows=rows,
+                    store=store,
+                )

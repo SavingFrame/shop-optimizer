@@ -1,6 +1,10 @@
 import abc
 import csv
 import datetime
+import io
+import re
+import zipfile
+from urllib.parse import urljoin
 
 import httpx
 from pydantic import BaseModel, Field
@@ -27,6 +31,16 @@ class SparkPriceListItem(BaseModel):
 class SparkPriceListResponse(BaseModel):
     files: list[SparkPriceListItem]
     count: int
+
+
+class LidlPriceListItem(BaseModel):
+    date: datetime.date
+    url: str
+
+
+class LidlPriceArchive(BaseModel):
+    files: list[str]
+    archive_content: bytes
 
 
 class SparPriceDownloader(BasePriceDownloader):
@@ -66,3 +80,77 @@ class SparPriceDownloader(BasePriceDownloader):
             csv_text = response.content.decode("cp1250")
             reader = csv.DictReader(csv_text.splitlines(), delimiter=";")
         return reader
+
+
+class LidlPriceDownloader(BasePriceDownloader):
+    prices_page_url = "https://tvrtka.lidl.hr/cijene"
+    _price_link_pattern = re.compile(r"href=[\"']([^\"']+\.zip)[\"']", re.IGNORECASE)
+    _date_pattern = re.compile(r"(\d{2})[._](\d{2})[._](\d{4})")
+
+    def download_prices_list(self, date: datetime.date) -> None:
+        with httpx.Client(follow_redirects=True) as client:
+            response = client.get(self.prices_page_url)
+            response.raise_for_status()
+            price_list_items = self._parse_price_list(response.text)
+            price_list_item = next(
+                (item for item in price_list_items if item.date == date),
+                None,
+            )
+            if not price_list_item:
+                raise ValueError(f"Lidl price archive for date {date} not found.")
+
+            archive_response = client.get(price_list_item.url)
+            archive_response.raise_for_status()
+            with zipfile.ZipFile(io.BytesIO(archive_response.content)) as archive:
+                files = [info.filename for info in archive.infolist() if not info.is_dir()]
+            self._downloaded_prices = LidlPriceArchive(
+                files=files,
+                archive_content=archive_response.content,
+            )
+
+    def download_price_csv_for_store(self, store: Store) -> csv.DictReader:
+        if not self._downloaded_prices:
+            raise ValueError(
+                "Price list not downloaded yet. Call download_prices_list first."
+            )
+        archive = LidlPriceArchive.model_validate(self._downloaded_prices)
+        store_file = self._find_store_file(archive.files, store)
+        if not store_file:
+            raise ValueError(
+                f"Price list for store with prefix {store.prefix} or code {store.store_code} not found."
+            )
+
+        with zipfile.ZipFile(io.BytesIO(archive.archive_content)) as zip_archive:
+            csv_text = zip_archive.read(store_file).decode("cp1250")
+        return csv.DictReader(csv_text.splitlines(), delimiter=",")
+
+    def _parse_price_list(self, html: str) -> list[LidlPriceListItem]:
+        price_list_items = []
+        for match in self._price_link_pattern.finditer(html):
+            url = urljoin(self.prices_page_url, match.group(1))
+            date_match = self._date_pattern.search(url)
+            if not date_match:
+                continue
+            day, month, year = date_match.groups()
+            price_list_items.append(
+                LidlPriceListItem(
+                    date=datetime.date(int(year), int(month), int(day)),
+                    url=url,
+                )
+            )
+        return price_list_items
+
+    def _find_store_file(self, files: list[str], store: Store) -> str | None:
+        if store.prefix:
+            store_file = next(
+                (file for file in files if file.startswith(store.prefix)),
+                None,
+            )
+            if store_file:
+                return store_file
+
+        store_code_prefix = f"Supermarket {store.store_code}_"
+        return next(
+            (file for file in files if file.startswith(store_code_prefix)),
+            None,
+        )

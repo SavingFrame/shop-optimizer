@@ -48,7 +48,14 @@ export const Route = createFileRoute("/_layout/products/")({
 const PAGE_SIZE = 100
 const LAST_PRODUCTS_PATH_STORAGE_KEY = "products:last-path"
 const PRODUCTS_FORCE_TOP_STORAGE_PREFIX = "products:force-top"
+const PRODUCTS_RESTORE_ON_POP_STORAGE_KEY = "products:restore-on-pop"
 const PRODUCTS_SELECTED_PRODUCT_STORAGE_PREFIX = "products:selected-product"
+
+if (typeof window !== "undefined") {
+  window.addEventListener("popstate", () => {
+    window.sessionStorage.setItem(PRODUCTS_RESTORE_ON_POP_STORAGE_KEY, "true")
+  })
+}
 
 function ProductsPage() {
   const { page: searchPage, q } = Route.useSearch()
@@ -118,7 +125,9 @@ function ProductsPage() {
       return
     }
 
-    restoreProductsPosition()
+    if (shouldRestoreProductsPositionOnPopNavigation()) {
+      restoreProductsPosition()
+    }
   }, [isError, isPending])
 
   const handlePageChange = (nextPage: number) => {
@@ -292,6 +301,15 @@ function markProductsPathForTopRestore(path: string) {
   window.sessionStorage.setItem(getProductsForceTopStorageKey(path), "true")
   window.sessionStorage.removeItem(getProductsSelectedProductStorageKey(path))
   window.sessionStorage.removeItem(getProductsScrollStorageKey(path))
+}
+
+function shouldRestoreProductsPositionOnPopNavigation() {
+  const shouldRestore = window.sessionStorage.getItem(
+    PRODUCTS_RESTORE_ON_POP_STORAGE_KEY,
+  )
+
+  window.sessionStorage.removeItem(PRODUCTS_RESTORE_ON_POP_STORAGE_KEY)
+  return shouldRestore === "true"
 }
 
 function restoreProductsPosition() {

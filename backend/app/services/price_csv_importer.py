@@ -28,9 +28,9 @@ class NormalizedPriceRow:
     net_quantity: str | None
     unit_of_measure: str | None
     category: str | None
-    retail_price_eur: Decimal | None
+    price_eur: Decimal | None
     unit_price_eur: Decimal
-    special_sale_price_eur: Decimal | None
+    is_special_sale: bool
 
 
 class BaseRetailerPriceCsvParser:
@@ -47,6 +47,11 @@ class BaseRetailerPriceCsvParser:
         if not name or not code or unit_price is None:
             return None
 
+        retail_price = self.parse_decimal(row.get(self.columns["retail_price"]))
+        special_sale_price = self.parse_decimal(
+            row.get(self.columns["special_sale_price"])
+        )
+
         return NormalizedPriceRow(
             retailer_product_code=code,
             source_product_name=name,
@@ -55,11 +60,11 @@ class BaseRetailerPriceCsvParser:
             net_quantity=self.clean(row.get(self.columns["net_quantity"])),
             unit_of_measure=self.clean(row.get(self.columns["unit_of_measure"])),
             category=self.clean(row.get(self.columns["category"])),
-            retail_price_eur=self.parse_decimal(row.get(self.columns["retail_price"])),
-            unit_price_eur=unit_price,
-            special_sale_price_eur=self.parse_decimal(
-                row.get(self.columns["special_sale_price"])
+            price_eur=(
+                special_sale_price if special_sale_price is not None else retail_price
             ),
+            unit_price_eur=unit_price,
+            is_special_sale=special_sale_price is not None,
         )
 
     @staticmethod
@@ -184,11 +189,7 @@ class PriceCsvImporter:
         session: Session,
         row: NormalizedPriceRow,
     ) -> tuple[Product, bool]:
-        product = None
-        if row.barcode:
-            product = session.exec(
-                select(Product).where(Product.barcode == row.barcode)
-            ).first()
+        product = self._find_existing_product(session, row)
         if product is None:
             product = Product(
                 barcode=row.barcode,
@@ -225,6 +226,25 @@ class PriceCsvImporter:
             session.add(product)
         return product, False
 
+    def _find_existing_product(
+        self,
+        session: Session,
+        row: NormalizedPriceRow,
+    ) -> Product | None:
+        if row.barcode:
+            return session.exec(
+                select(Product).where(Product.barcode == row.barcode)
+            ).first()
+
+        return session.exec(
+            select(Product)
+            .join(PriceObservation)
+            .where(
+                PriceObservation.retailer_id == self.parser.retailer_id,
+                PriceObservation.retailer_product_code == row.retailer_product_code,
+            )
+        ).first()
+
     def _upsert_observation(
         self,
         session: Session,
@@ -250,9 +270,9 @@ class PriceCsvImporter:
                     observed_date=self.observed_date,
                     retailer_product_code=normalized.retailer_product_code,
                     source_product_name=normalized.source_product_name,
-                    retail_price_eur=normalized.retail_price_eur,
+                    price_eur=normalized.price_eur,
                     unit_price_eur=normalized.unit_price_eur,
-                    special_sale_price_eur=normalized.special_sale_price_eur,
+                    is_special_sale=normalized.is_special_sale,
                     source_file_name=None,
                 ),
                 True,
@@ -260,8 +280,8 @@ class PriceCsvImporter:
 
         observation.product_id = product.id
         observation.source_product_name = normalized.source_product_name
-        observation.retail_price_eur = normalized.retail_price_eur
+        observation.price_eur = normalized.price_eur
         observation.unit_price_eur = normalized.unit_price_eur
-        observation.special_sale_price_eur = normalized.special_sale_price_eur
+        observation.is_special_sale = normalized.is_special_sale
         observation.source_file_name = None
         return observation, False

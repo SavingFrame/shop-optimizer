@@ -12,10 +12,20 @@ import {
   Tags,
 } from "lucide-react"
 import { useMemo, useState } from "react"
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import {
   type ProductPublic,
   ProductsService,
+  type RetailerDailyRetailPriceHistoryPoint,
   type RetailerPriceObservationSummary,
 } from "@/client"
 import { Badge } from "@/components/ui/badge"
@@ -53,6 +63,12 @@ function ProductDetailPage() {
       ProductsService.groupedProductPriceObservations({ productId }),
   })
 
+  const priceHistoryQuery = useQuery({
+    queryKey: ["products", productId, "price-history", "retail", "chart"],
+    queryFn: () =>
+      ProductsService.productDailyRetailPriceHistoryChart({ productId }),
+  })
+
   const product = productQuery.data
   const prices = pricesQuery.data ?? []
   const lowestPrice = useMemo(() => findLowestPrice(prices), [prices])
@@ -85,6 +101,23 @@ function ProductDetailPage() {
       </Button>
 
       <ProductHero product={product} pricesCount={prices.length} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Price history</CardTitle>
+          <CardDescription>
+            Daily average price by retailer. Hover a point to see the recorded
+            min and max range for that day.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PriceHistoryChart
+            isError={priceHistoryQuery.isError}
+            isPending={priceHistoryQuery.isPending}
+            points={priceHistoryQuery.data ?? []}
+          />
+        </CardContent>
+      </Card>
 
       <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
         <Card>
@@ -120,7 +153,7 @@ function ProductDetailPage() {
             />
             <InfoTile
               icon={Tags}
-              label="Lowest retail price"
+              label="Lowest price"
               value={lowestPrice ? formatCurrency(lowestPrice) : undefined}
             />
             <InfoTile
@@ -141,6 +174,8 @@ type ProductHeroProps = {
 }
 
 function ProductHero({ pricesCount, product }: ProductHeroProps) {
+  const alternativeName = getDisplayAlternativeName(product)
+
   return (
     <section className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
       <Card className="overflow-hidden bg-card/80">
@@ -159,6 +194,11 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
             <CardTitle className="text-3xl leading-tight sm:text-5xl">
               {product.name}
             </CardTitle>
+            {alternativeName && (
+              <p className="text-lg font-medium text-muted-foreground">
+                {alternativeName}
+              </p>
+            )}
             <CardDescription className="text-base leading-7">
               Compare current shop price observations for this normalized
               product.
@@ -173,6 +213,13 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
           />
           <InfoTile icon={Ruler} label="Unit" value={product.unit_of_measure} />
           <InfoTile icon={Barcode} label="Barcode" value={product.barcode} />
+          {alternativeName && (
+            <InfoTile
+              icon={Tags}
+              label="Alternative name"
+              value={alternativeName}
+            />
+          )}
           <InfoTile
             icon={Store}
             label="Retailer prices"
@@ -182,6 +229,22 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
       </Card>
     </section>
   )
+}
+
+function getDisplayAlternativeName(product: ProductPublic) {
+  const alternativeName = product.alternative_name?.trim()
+
+  if (!alternativeName) {
+    return undefined
+  }
+
+  if (
+    alternativeName.toLocaleLowerCase() === product.name.toLocaleLowerCase()
+  ) {
+    return undefined
+  }
+
+  return alternativeName
 }
 
 type PriceObservationsProps = {
@@ -247,6 +310,252 @@ function PriceObservations({
   )
 }
 
+type PriceHistoryChartProps = {
+  isError: boolean
+  isPending: boolean
+  points: Array<RetailerDailyRetailPriceHistoryPoint>
+}
+
+type PriceHistoryChartData = {
+  rows: Array<PriceHistoryDatum>
+  series: Array<PriceHistorySeries>
+}
+
+type PriceHistoryDatum = {
+  observed_date: string
+} & Record<string, boolean | number | string | null>
+
+type PriceHistorySeries = {
+  color: string
+  dataKey: string
+  id: string
+  maxKey: string
+  minKey: string
+  name: string
+}
+
+type PriceHistoryTooltipPayload = {
+  color?: string
+  dataKey?: string | number
+  name?: string
+  payload?: PriceHistoryDatum
+  value?: number | string | null
+}
+
+type PriceHistoryTooltipProps = {
+  active?: boolean
+  label?: string
+  payload?: Array<PriceHistoryTooltipPayload>
+}
+
+const CHART_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+]
+
+function PriceHistoryChart({
+  isError,
+  isPending,
+  points,
+}: PriceHistoryChartProps) {
+  const chartData = useMemo(() => buildPriceHistoryChartData(points), [points])
+
+  if (isPending) {
+    return <div className="h-80 animate-pulse rounded-2xl bg-background/60" />
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
+        Could not load retail price history.
+      </div>
+    )
+  }
+
+  if (chartData.rows.length === 0 || chartData.series.length === 0) {
+    return (
+      <div className="flex min-h-80 flex-col items-center justify-center gap-3 rounded-2xl border bg-background/60 p-6 text-center">
+        <CalendarDays className="size-10 text-muted-foreground" />
+        <div>
+          <p className="font-medium">No price history yet</p>
+          <p className="text-sm text-muted-foreground">
+            This product does not have enough imported retail prices for a
+            chart.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="h-80 w-full">
+        <ResponsiveContainer height="100%" width="100%">
+          <LineChart
+            data={chartData.rows}
+            margin={{ bottom: 0, left: 0, right: 12, top: 12 }}
+          >
+            <CartesianGrid className="stroke-muted" strokeDasharray="3 3" />
+            <XAxis
+              axisLine={false}
+              dataKey="observed_date"
+              tickFormatter={formatShortDate}
+              tickLine={false}
+            />
+            <YAxis
+              axisLine={false}
+              tickFormatter={formatChartCurrency}
+              tickLine={false}
+              width={72}
+            />
+            <Tooltip content={<PriceHistoryTooltip />} />
+            {chartData.series.map((series) => (
+              <Line
+                activeDot={{ r: 5 }}
+                connectNulls
+                dataKey={series.dataKey}
+                dot={{ r: 3 }}
+                key={series.id}
+                name={series.name}
+                stroke={series.color}
+                strokeWidth={2}
+                type="monotone"
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {chartData.series.map((series) => (
+          <div
+            className="flex items-center gap-2 text-sm text-muted-foreground"
+            key={series.id}
+          >
+            <span
+              className="size-3 rounded-full"
+              style={{ backgroundColor: series.color }}
+            />
+            {series.name}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PriceHistoryTooltip({
+  active,
+  label,
+  payload,
+}: PriceHistoryTooltipProps) {
+  const visiblePayload = payload?.filter(
+    (item) => item.value !== null && item.value !== undefined,
+  )
+
+  if (!active || !visiblePayload?.length) {
+    return null
+  }
+
+  return (
+    <div className="min-w-52 rounded-xl border bg-popover p-3 text-popover-foreground shadow-md">
+      <p className="mb-2 text-sm font-medium">{label}</p>
+      <div className="space-y-2">
+        {visiblePayload.map((item) => {
+          const dataKey = String(item.dataKey)
+          const minPrice = getChartPriceValue(item.payload?.[`${dataKey}__min`])
+          const maxPrice = getChartPriceValue(item.payload?.[`${dataKey}__max`])
+          const isSpecialSale = item.payload?.[`${dataKey}__sale`] === true
+          const range = formatPriceRangeValue(minPrice, maxPrice)
+
+          return (
+            <div className="space-y-1" key={dataKey}>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="flex items-center gap-2">
+                  <span
+                    className="size-2.5 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  {item.name}
+                  {isSpecialSale && (
+                    <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                      Special sale
+                    </span>
+                  )}
+                </span>
+                <span className="font-medium">
+                  {formatCurrencyValue(item.value)}
+                </span>
+              </div>
+              {range && (
+                <p className="pl-4 text-xs text-muted-foreground">
+                  Range {range}
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function buildPriceHistoryChartData(
+  points: Array<RetailerDailyRetailPriceHistoryPoint>,
+): PriceHistoryChartData {
+  const retailers = new Map<string, string>()
+  const rowsByDate = new Map<string, PriceHistoryDatum>()
+
+  for (const point of points) {
+    retailers.set(point.retailer.id, point.retailer.name)
+
+    const dataKey = getRetailerPriceDataKey(point.retailer.id)
+    const row = rowsByDate.get(point.observed_date) ?? {
+      observed_date: point.observed_date,
+    }
+
+    row[dataKey] = parseNullableNumber(point.average_price_eur)
+    row[`${dataKey}__min`] = parseNullableNumber(point.min_price_eur)
+    row[`${dataKey}__max`] = parseNullableNumber(point.max_price_eur)
+    row[`${dataKey}__sale`] = point.has_special_sale
+    rowsByDate.set(point.observed_date, row)
+  }
+
+  const series = [...retailers.entries()]
+    .sort(([, firstName], [, secondName]) =>
+      firstName.localeCompare(secondName),
+    )
+    .map(([id, name], index) => {
+      const dataKey = getRetailerPriceDataKey(id)
+
+      return {
+        color: CHART_COLORS[index % CHART_COLORS.length],
+        dataKey,
+        id,
+        maxKey: `${dataKey}__max`,
+        minKey: `${dataKey}__min`,
+        name,
+      }
+    })
+
+  return {
+    rows: [...rowsByDate.values()].sort((first, second) =>
+      first.observed_date.localeCompare(second.observed_date),
+    ),
+    series,
+  }
+}
+
+function getChartPriceValue(value?: boolean | number | string | null) {
+  return typeof value === "boolean" ? null : value
+}
+
+function getRetailerPriceDataKey(retailerId: string) {
+  return `retailer_${retailerId.replace(/-/g, "_")}`
+}
+
 type PriceObservationRowProps = {
   observation: RetailerPriceObservationSummary
 }
@@ -269,9 +578,11 @@ function PriceObservationRow({ observation }: PriceObservationRowProps) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold">{observation.retailer.name}</p>
             <Badge variant="secondary">{observation.store_count} stores</Badge>
-            {(observation.has_store_price_variance ||
-              observation.has_store_special_sale_price_variance) && (
+            {observation.has_store_price_variance && (
               <Badge variant="outline">Price varies by store</Badge>
+            )}
+            {observation.has_special_sale && (
+              <Badge variant="outline">Special sale</Badge>
             )}
           </div>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -282,7 +593,7 @@ function PriceObservationRow({ observation }: PriceObservationRowProps) {
 
         <div className="shrink-0 text-left sm:text-right">
           <p className="text-2xl font-semibold tracking-tight">
-            {retailPrice ? formatCurrency(retailPrice) : "No retail price"}
+            {retailPrice ? formatCurrency(retailPrice) : "No price"}
           </p>
           <p className="text-sm text-muted-foreground">
             {formatCurrency(observation.average_unit_price_eur)} avg per unit
@@ -291,12 +602,6 @@ function PriceObservationRow({ observation }: PriceObservationRowProps) {
             {retailPriceRange && <span>Price range {retailPriceRange}</span>}
             {unitPriceRange && <span>Unit range {unitPriceRange}</span>}
           </div>
-          {observation.average_special_sale_price_eur && (
-            <Badge className="mt-2" variant="outline">
-              Avg sale{" "}
-              {formatCurrency(observation.average_special_sale_price_eur)}
-            </Badge>
-          )}
         </div>
       </div>
     </div>
@@ -402,6 +707,53 @@ function findLowestPrice(observations: Array<RetailerPriceObservationSummary>) {
     .sort((first, second) => Number(first) - Number(second))[0]
 }
 
+function parseNullableNumber(value?: string | null) {
+  if (!value) {
+    return null
+  }
+
+  return Number(value)
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("hr-HR", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(value))
+}
+
+function formatChartCurrency(value: number) {
+  return `${value.toFixed(2)} €`
+}
+
+function formatCurrencyValue(value?: number | string | null) {
+  if (value === null || value === undefined) {
+    return "Not available"
+  }
+
+  return new Intl.NumberFormat("hr-HR", {
+    currency: "EUR",
+    style: "currency",
+  }).format(Number(value))
+}
+
+function formatPriceRangeValue(
+  minPrice?: number | string | null,
+  maxPrice?: number | string | null,
+) {
+  if (
+    minPrice === null ||
+    minPrice === undefined ||
+    maxPrice === null ||
+    maxPrice === undefined ||
+    Number(minPrice) === Number(maxPrice)
+  ) {
+    return undefined
+  }
+
+  return `${formatCurrencyValue(minPrice)} to ${formatCurrencyValue(maxPrice)}`
+}
+
 function formatCurrency(value: string) {
   return new Intl.NumberFormat("hr-HR", {
     currency: "EUR",
@@ -420,22 +772,15 @@ function formatLatestDate(
 }
 
 function getAveragePrice(observation: RetailerPriceObservationSummary) {
-  return (
-    observation.average_special_sale_price_eur ??
-    observation.average_retail_price_eur
-  )
+  return observation.average_price_eur
 }
 
 function getMinPrice(observation: RetailerPriceObservationSummary) {
-  return (
-    observation.min_special_sale_price_eur ?? observation.min_retail_price_eur
-  )
+  return observation.min_price_eur
 }
 
 function getMaxPrice(observation: RetailerPriceObservationSummary) {
-  return (
-    observation.max_special_sale_price_eur ?? observation.max_retail_price_eur
-  )
+  return observation.max_price_eur
 }
 
 function formatPriceRange(minPrice?: string | null, maxPrice?: string | null) {

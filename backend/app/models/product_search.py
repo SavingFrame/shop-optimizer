@@ -18,5 +18,6 @@ class ProductSearchIndex(ProductSearchBase):
 
     rowid: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str | None] = mapped_column(String)
+    alternative_name: Mapped[str | None] = mapped_column(String)
     brand: Mapped[str | None] = mapped_column(String)
     category: Mapped[str | None] = mapped_column(String)

@@ -336,6 +336,8 @@ type ProductCardProps = {
 }
 
 function ProductCard({ product }: ProductCardProps) {
+  const alternativeName = getDisplayAlternativeName(product)
+
   return (
     <Link
       to="/products/$productId"
@@ -357,6 +359,11 @@ function ProductCard({ product }: ProductCardProps) {
             <h2 className="line-clamp-2 text-lg font-semibold leading-snug">
               {product.name}
             </h2>
+            {alternativeName && (
+              <p className="line-clamp-1 text-xs text-muted-foreground">
+                Also: {alternativeName}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2 text-sm text-muted-foreground">
@@ -378,6 +385,22 @@ function ProductCard({ product }: ProductCardProps) {
       </Card>
     </Link>
   )
+}
+
+function getDisplayAlternativeName(product: ProductPublic) {
+  const alternativeName = product.alternative_name?.trim()
+
+  if (!alternativeName) {
+    return undefined
+  }
+
+  if (
+    alternativeName.toLocaleLowerCase() === product.name.toLocaleLowerCase()
+  ) {
+    return undefined
+  }
+
+  return alternativeName
 }
 
 type ProductImageProps = {

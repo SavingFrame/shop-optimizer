@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, Numeric, UniqueConstraint
+from sqlalchemy import Boolean, Column, Numeric, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -29,19 +29,19 @@ class PriceObservationBase(SQLModel):
         max_length=255,
         description="Product name exactly as it appeared in the source price list.",
     )
-    retail_price_eur: Decimal | None = Field(
+    price_eur: Decimal | None = Field(
         default=None,
         sa_column=Column(Numeric(10, 2), nullable=True),
-        description="Original CSV column: MPC (EUR) or MALOPRODAJNA CIJENA.",
+        description="Current product price from the source price list.",
     )
     unit_price_eur: Decimal = Field(
         sa_column=Column(Numeric(10, 2), nullable=False),
         description="Original CSV column: cijena za jedinicu mjere (EUR) or CIJENA ZA JEDINICU MJERE.",
     )
-    special_sale_price_eur: Decimal | None = Field(
-        default=None,
-        sa_column=Column(Numeric(10, 2), nullable=True),
-        description="Original CSV column: MPC za vrijeme posebnog oblika prodaje (EUR) or MPC ZA VRIJEME POSEBNOG OBLIKA PRODAJE.",
+    is_special_sale: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, server_default="0"),
+        description="Whether price_eur comes from the special sale price column.",
     )
     source_file_name: str | None = Field(
         default=None,

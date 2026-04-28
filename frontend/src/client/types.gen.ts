@@ -34,17 +34,17 @@ export type NestedPriceObservation = {
      */
     source_product_name: string;
     /**
-     * Original CSV column: MPC (EUR) or MALOPRODAJNA CIJENA.
+     * Current product price from the source price list.
      */
-    retail_price_eur?: (string | null);
+    price_eur?: (string | null);
     /**
      * Original CSV column: cijena za jedinicu mjere (EUR) or CIJENA ZA JEDINICU MJERE.
      */
     unit_price_eur: string;
     /**
-     * Original CSV column: MPC za vrijeme posebnog oblika prodaje (EUR) or MPC ZA VRIJEME POSEBNOG OBLIKA PRODAJE.
+     * Whether price_eur comes from the special sale price column.
      */
-    special_sale_price_eur?: (string | null);
+    is_special_sale?: boolean;
     /**
      * Name of the imported source CSV file.
      */
@@ -76,6 +76,10 @@ export type ProductPublic = {
      */
     name: string;
     /**
+     * Alternative product name fetched from Open Food Facts, preferring Croatian names.
+     */
+    alternative_name?: (string | null);
+    /**
      * Original CSV column: marka or MARKA PROIZVODA.
      */
     brand?: (string | null);
@@ -103,22 +107,28 @@ export type ProductsPublic = {
     count: number;
 };
 
+export type RetailerDailyRetailPriceHistoryPoint = {
+    retailer: RetailerPublic;
+    observed_date: string;
+    average_price_eur: (string | null);
+    min_price_eur: (string | null);
+    max_price_eur: (string | null);
+    has_special_sale: boolean;
+};
+
 export type RetailerPriceObservationSummary = {
     retailer: RetailerPublic;
     observed_date: string;
-    average_retail_price_eur?: (string | null);
-    min_retail_price_eur?: (string | null);
-    max_retail_price_eur?: (string | null);
+    average_price_eur: (string | null);
+    min_price_eur: (string | null);
+    max_price_eur: (string | null);
     average_unit_price_eur: string;
     min_unit_price_eur: string;
     max_unit_price_eur: string;
-    average_special_sale_price_eur?: (string | null);
-    min_special_sale_price_eur?: (string | null);
-    max_special_sale_price_eur?: (string | null);
     store_count: number;
     observation_count: number;
     has_store_price_variance: boolean;
-    has_store_special_sale_price_variance: boolean;
+    has_special_sale: boolean;
 };
 
 export type RetailerPublic = {
@@ -258,6 +268,12 @@ export type ProductsProductPriceObservationsData = {
 };
 
 export type ProductsProductPriceObservationsResponse = (Array<NestedPriceObservation>);
+
+export type ProductsProductDailyRetailPriceHistoryChartData = {
+    productId: string;
+};
+
+export type ProductsProductDailyRetailPriceHistoryChartResponse = (Array<RetailerDailyRetailPriceHistoryPoint>);
 
 export type ProductsGroupedProductPriceObservationsData = {
     productId: string;

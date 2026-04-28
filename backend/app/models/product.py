@@ -1,6 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING
 
+from pydantic import model_validator
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -19,6 +20,12 @@ class ProductBase(SQLModel):
         index=True,
         max_length=255,
         description="Canonical or first seen product name. Original CSV column: naziv or NAZIV PROIZVODA.",
+    )
+    alternative_name: str | None = Field(
+        default=None,
+        index=True,
+        max_length=255,
+        description="Alternative product name fetched from Open Food Facts, preferring Croatian names.",
     )
     brand: str | None = Field(
         default=None,
@@ -63,6 +70,27 @@ class ProductCreate(ProductBase):
 
 class ProductPublic(ProductBase):
     id: uuid.UUID
+
+    @model_validator(mode="after")
+    def set_default_image_url(self) -> "ProductPublic":
+        if not self.barcode:
+            return self
+
+        cleaned_barcode = self.barcode.strip()
+        if not cleaned_barcode.isdigit() or len(cleaned_barcode) <= 4:
+            return self
+
+        prefix_length = len(cleaned_barcode) - 4
+        groups = [
+            cleaned_barcode[index : index + 3] for index in range(0, prefix_length, 3)
+        ]
+        groups.append(cleaned_barcode[prefix_length:])
+        product_path = "/".join(groups)
+        self.image_url = (
+            "https://openfoodfacts-images.s3.eu-west-3.amazonaws.com/"
+            f"data/{product_path}/1.400.jpg"
+        )
+        return self
 
 
 class ProductsPublic(SQLModel):

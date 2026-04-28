@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Populate product.image_url from an Open Food Facts Parquet export.
+"""Populate product.image_url and product.alternative_name from an Open Food Facts Parquet export.
 
 Run from the repository root:
 
     uvx --with duckdb python backend/scripts/populate_product_images_from_parquet.py \
         ./food.parquet --db ./backend/app.db
 
-By default, only products with a missing image_url are updated and a SQLite backup
-is created next to the database before writing.
+By default, only products with a missing image_url or alternative_name are updated
+and a SQLite backup is created next to the database before writing.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from typing import Any
 import duckdb
 
 OPENFOODFACTS_IMAGE_BASE_URL = "https://images.openfoodfacts.org/images/products"
+ALTERNATIVE_NAME_LANGUAGE_PRIORITY = ("hr", "main", "en")
 
 
 LANGUAGE_PRIORITY = {
@@ -37,7 +38,10 @@ LANGUAGE_PRIORITY = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Populate product.image_url from an Open Food Facts Parquet file."
+        description=(
+            "Populate product.image_url and product.alternative_name from an "
+            "Open Food Facts Parquet file."
+        )
     )
     parser.add_argument("parquet", type=Path, help="Path to Open Food Facts parquet file")
     parser.add_argument(
@@ -49,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Update products even when image_url is already populated.",
+        help="Update products even when image_url or alternative_name is already populated.",
     )
     parser.add_argument(
         "--dry-run",
@@ -111,24 +115,60 @@ def select_image_url(code: str, images: list[dict[str, Any]] | None) -> str | No
     return f"{OPENFOODFACTS_IMAGE_BASE_URL}/{product_path}/{key}.{rev}.400.jpg"
 
 
-def load_products_missing_images(
+def select_alternative_name(
+    product_names: list[dict[str, Any]] | None,
+) -> str | None:
+    if not product_names:
+        return None
+
+    names_by_language: dict[str, str] = {}
+    for product_name in product_names:
+        language = str(product_name.get("lang") or "")
+        text = str(product_name.get("text") or "").strip()
+        if language and text and language not in names_by_language:
+            names_by_language[language] = text[:255]
+
+    for language in ALTERNATIVE_NAME_LANGUAGE_PRIORITY:
+        name = names_by_language.get(language)
+        if name:
+            return name
+
+    return None
+
+
+def load_products_to_enrich(
     sqlite_connection: sqlite3.Connection,
     overwrite: bool,
-) -> dict[str, str]:
+) -> dict[str, dict[str, Any]]:
     where_clause = "barcode IS NOT NULL"
     if not overwrite:
-        where_clause += " AND (image_url IS NULL OR image_url = '')"
+        where_clause += (
+            " AND ((image_url IS NULL OR image_url = '') "
+            "OR (alternative_name IS NULL OR alternative_name = ''))"
+        )
 
     rows = sqlite_connection.execute(
-        f"SELECT id, barcode FROM product WHERE {where_clause}"
+        f"""
+        SELECT id, barcode, image_url, alternative_name
+        FROM product
+        WHERE {where_clause}
+        """
     ).fetchall()
-    return {str(barcode): str(product_id) for product_id, barcode in rows if barcode}
+    return {
+        str(barcode): {
+            "id": str(product_id),
+            "needs_image": overwrite or not image_url,
+            "needs_alternative_name": overwrite or not alternative_name,
+        }
+        for product_id, barcode, image_url, alternative_name in rows
+        if barcode
+    }
 
 
-def find_image_urls(
+def find_product_enrichments(
     parquet_path: Path,
-    products_by_barcode: dict[str, str],
-) -> dict[str, str]:
+    products_by_barcode: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, str]]:
     if not products_by_barcode:
         return {}
 
@@ -141,27 +181,39 @@ def find_image_urls(
 
     rows = duckdb_connection.execute(
         """
-        SELECT parquet.code, parquet.images
+        SELECT parquet.code, parquet.images, parquet.product_name
         FROM read_parquet(?) AS parquet
         INNER JOIN target_barcodes AS target
             ON parquet.code = target.barcode
-        WHERE parquet.images IS NOT NULL
+        WHERE parquet.images IS NOT NULL OR parquet.product_name IS NOT NULL
         """,
         [str(parquet_path)],
     ).fetchall()
 
-    image_urls: dict[str, str] = {}
-    for code, images in rows:
-        image_url = select_image_url(code, images)
-        if image_url:
-            image_urls[products_by_barcode[code]] = image_url
+    enrichments: dict[str, dict[str, str]] = {}
+    for code, images, product_names in rows:
+        product = products_by_barcode[code]
+        product_enrichment: dict[str, str] = {}
 
-    return image_urls
+        if product["needs_image"]:
+            image_url = select_image_url(code, images)
+            if image_url:
+                product_enrichment["image_url"] = image_url
+
+        if product["needs_alternative_name"]:
+            alternative_name = select_alternative_name(product_names)
+            if alternative_name:
+                product_enrichment["alternative_name"] = alternative_name
+
+        if product_enrichment:
+            enrichments[product["id"]] = product_enrichment
+
+    return enrichments
 
 
 def create_backup(db_path: Path) -> Path:
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-    backup_path = db_path.with_suffix(f".before-product-images-{timestamp}.db")
+    backup_path = db_path.with_suffix(f".before-product-enrichment-{timestamp}.db")
     shutil.copy2(db_path, backup_path)
     return backup_path
 
@@ -177,34 +229,41 @@ def main() -> None:
         raise SystemExit(f"SQLite database does not exist: {db_path}")
 
     sqlite_connection = sqlite3.connect(db_path)
-    products_by_barcode = load_products_missing_images(
+    products_by_barcode = load_products_to_enrich(
         sqlite_connection=sqlite_connection,
         overwrite=args.overwrite,
     )
     print(f"Products considered: {len(products_by_barcode)}")
 
-    image_urls = find_image_urls(
+    enrichments = find_product_enrichments(
         parquet_path=parquet_path,
         products_by_barcode=products_by_barcode,
     )
-    print(f"Matching image URLs found: {len(image_urls)}")
+    image_count = sum("image_url" in enrichment for enrichment in enrichments.values())
+    alternative_name_count = sum(
+        "alternative_name" in enrichment for enrichment in enrichments.values()
+    )
+    print(f"Matching image URLs found: {image_count}")
+    print(f"Matching alternative names found: {alternative_name_count}")
 
-    for product_id, image_url in list(image_urls.items())[:10]:
-        print(f"  {product_id}: {image_url}")
+    for product_id, enrichment in list(enrichments.items())[:10]:
+        print(f"  {product_id}: {enrichment}")
 
     if args.dry_run:
         print("Dry run complete. No database rows were updated.")
         return
 
-    if image_urls and not args.no_backup:
+    if enrichments and not args.no_backup:
         backup_path = create_backup(db_path)
         print(f"Backup created: {backup_path}")
 
     updated = 0
-    for product_id, image_url in image_urls.items():
+    for product_id, enrichment in enrichments.items():
+        set_clause = ", ".join(f"{column} = ?" for column in enrichment)
+        values = [*enrichment.values(), product_id]
         cursor = sqlite_connection.execute(
-            "UPDATE product SET image_url = ? WHERE id = ?",
-            (image_url, product_id),
+            f"UPDATE product SET {set_clause} WHERE id = ?",
+            values,
         )
         updated += cursor.rowcount
 

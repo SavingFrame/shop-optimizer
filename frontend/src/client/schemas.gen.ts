@@ -118,7 +118,7 @@ export const NestedPriceObservationSchema = {
             title: 'Source Product Name',
             description: 'Product name exactly as it appeared in the source price list.'
         },
-        retail_price_eur: {
+        price_eur: {
             anyOf: [
                 {
                     type: 'string',
@@ -128,8 +128,8 @@ export const NestedPriceObservationSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Retail Price Eur',
-            description: 'Original CSV column: MPC (EUR) or MALOPRODAJNA CIJENA.'
+            title: 'Price Eur',
+            description: 'Current product price from the source price list.'
         },
         unit_price_eur: {
             type: 'string',
@@ -137,18 +137,11 @@ export const NestedPriceObservationSchema = {
             title: 'Unit Price Eur',
             description: 'Original CSV column: cijena za jedinicu mjere (EUR) or CIJENA ZA JEDINICU MJERE.'
         },
-        special_sale_price_eur: {
-            anyOf: [
-                {
-                    type: 'string',
-                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Special Sale Price Eur',
-            description: 'Original CSV column: MPC za vrijeme posebnog oblika prodaje (EUR) or MPC ZA VRIJEME POSEBNOG OBLIKA PRODAJE.'
+        is_special_sale: {
+            type: 'boolean',
+            title: 'Is Special Sale',
+            description: 'Whether price_eur comes from the special sale price column.',
+            default: false
         },
         source_file_name: {
             anyOf: [
@@ -244,6 +237,19 @@ export const ProductPublicSchema = {
             title: 'Name',
             description: 'Canonical or first seen product name. Original CSV column: naziv or NAZIV PROIZVODA.'
         },
+        alternative_name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Alternative Name',
+            description: 'Alternative product name fetched from Open Food Facts, preferring Croatian names.'
+        },
         brand: {
             anyOf: [
                 {
@@ -337,6 +343,145 @@ export const ProductsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ProductsPublic'
+} as const;
+
+export const RetailerDailyRetailPriceHistoryPointSchema = {
+    properties: {
+        retailer: {
+            '$ref': '#/components/schemas/RetailerPublic'
+        },
+        observed_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Observed Date'
+        },
+        average_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Average Price Eur'
+        },
+        min_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Min Price Eur'
+        },
+        max_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Max Price Eur'
+        },
+        has_special_sale: {
+            type: 'boolean',
+            title: 'Has Special Sale'
+        }
+    },
+    type: 'object',
+    required: ['retailer', 'observed_date', 'average_price_eur', 'min_price_eur', 'max_price_eur', 'has_special_sale'],
+    title: 'RetailerDailyRetailPriceHistoryPoint'
+} as const;
+
+export const RetailerPriceObservationSummarySchema = {
+    properties: {
+        retailer: {
+            '$ref': '#/components/schemas/RetailerPublic'
+        },
+        observed_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Observed Date'
+        },
+        average_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Average Price Eur'
+        },
+        min_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Min Price Eur'
+        },
+        max_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Max Price Eur'
+        },
+        average_unit_price_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Average Unit Price Eur'
+        },
+        min_unit_price_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Min Unit Price Eur'
+        },
+        max_unit_price_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Max Unit Price Eur'
+        },
+        store_count: {
+            type: 'integer',
+            title: 'Store Count'
+        },
+        observation_count: {
+            type: 'integer',
+            title: 'Observation Count'
+        },
+        has_store_price_variance: {
+            type: 'boolean',
+            title: 'Has Store Price Variance'
+        },
+        has_special_sale: {
+            type: 'boolean',
+            title: 'Has Special Sale'
+        }
+    },
+    type: 'object',
+    required: ['retailer', 'observed_date', 'average_price_eur', 'min_price_eur', 'max_price_eur', 'average_unit_price_eur', 'min_unit_price_eur', 'max_unit_price_eur', 'store_count', 'observation_count', 'has_store_price_variance', 'has_special_sale'],
+    title: 'RetailerPriceObservationSummary'
 } as const;
 
 export const RetailerPublicSchema = {

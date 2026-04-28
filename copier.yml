@@ -59,12 +59,10 @@ sentry_dsn:
 _exclude:
   # Global
   - .vscode
-  - .mypy_cache
   # Python
   - __pycache__
   - app.egg-info
   - "*.pyc"
-  - .mypy_cache
   - .coverage
   - htmlcov
   - .cache

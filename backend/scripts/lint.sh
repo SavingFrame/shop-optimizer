@@ -3,6 +3,6 @@
 set -e
 set -x
 
-mypy app
+uv run ty check --exclude 'app/alembic/**' app
 ruff check app
 ruff format app --check

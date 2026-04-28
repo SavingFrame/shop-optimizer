@@ -9,7 +9,7 @@
 - ⚡ [**FastAPI**](https://fastapi.tiangolo.com) for the Python backend API.
   - 🧰 [SQLModel](https://sqlmodel.tiangolo.com) for the Python SQL database interactions (ORM).
   - 🔍 [Pydantic](https://docs.pydantic.dev), used by FastAPI, for the data validation and settings management.
-  - 💾 [PostgreSQL](https://www.postgresql.org) as the SQL database.
+  - 💾 [SQLite](https://www.sqlite.org/) as the SQL database.
 - 🚀 [React](https://react.dev) for the frontend.
   - 💃 Using TypeScript, hooks, [Vite](https://vitejs.dev), and other parts of a modern frontend stack.
   - 🎨 [Tailwind CSS](https://tailwindcss.com) and [shadcn/ui](https://ui.shadcn.com) for the frontend components.
@@ -128,7 +128,6 @@ Before deploying it, make sure you change at least the values for:
 
 - `SECRET_KEY`
 - `FIRST_SUPERUSER_PASSWORD`
-- `POSTGRES_PASSWORD`
 
 You can (and should) pass these as environment variables from secrets.
 
@@ -203,7 +202,7 @@ The input variables, with their default values (some auto generated) are:
 - `smtp_user`: (default: "") The SMTP server user to send emails, you can set it later in .env.
 - `smtp_password`: (default: "") The SMTP server password to send emails, you can set it later in .env.
 - `emails_from_email`: (default: `"info@example.com"`) The email account to send emails from, you can set it later in .env.
-- `postgres_password`: (default: `"changethis"`) The password for the PostgreSQL database, stored in .env, you can generate one with the method above.
+- `sqlite_database_path`: (default: `"./app.db"`) The SQLite database file path, stored in .env.
 - `sentry_dsn`: (default: "") The DSN for Sentry, if you are using it, you can set it later in .env.
 
 ## Backend Development

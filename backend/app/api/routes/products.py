@@ -1,31 +1,19 @@
-import re
 import uuid
 from datetime import date
 from decimal import Decimal
 from typing import ClassVar
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import literal_column
+from sqlalchemy import case, desc, or_
 from sqlmodel import SQLModel, func, select
 
 from app.api.deps import SessionDep
 from app.models.price_observation import PriceObservation, PriceObservationPublic
 from app.models.product import Product, ProductPublic, ProductsPublic
-from app.models.product_search import ProductSearchIndex
 from app.models.retailer import Retailer, RetailerPublic
 from app.models.store import StorePublic
 
 router = APIRouter(prefix="/products", tags=["products"])
-
-SEARCH_TOKEN_PATTERN = re.compile(r"\w+", re.UNICODE)
-
-
-def build_product_fts_query(search: str) -> str | None:
-    tokens = SEARCH_TOKEN_PATTERN.findall(search)
-    if not tokens:
-        return None
-    return " ".join(f'"{token}"*' for token in tokens)
-
 
 @router.get("/", response_model=ProductsPublic)
 def read_products(
@@ -45,43 +33,40 @@ def read_products(
 
         return ProductsPublic(count=count, data=products)
 
-    fts_query = build_product_fts_query(search)
-    product_rowid = literal_column("product.rowid")
-    product_fts = literal_column("product_fts")
+    search_pattern = f"%{search}%"
+    search_filter = or_(
+        Product.barcode == search,
+        Product.name.ilike(search_pattern),
+        Product.alternative_name.ilike(search_pattern),
+        Product.brand.ilike(search_pattern),
+        Product.category.ilike(search_pattern),
+    )
+    similarity_score = func.greatest(
+        func.similarity(func.coalesce(Product.name, ""), search),
+        func.similarity(func.coalesce(Product.alternative_name, ""), search),
+        func.similarity(func.coalesce(Product.brand, ""), search),
+        func.similarity(func.coalesce(Product.category, ""), search),
+    )
+    has_image = (Product.image_url.is_not(None)) & (Product.image_url != "")
 
-    matching_ids: list[uuid.UUID] = []
+    count_statement = select(func.count()).select_from(Product).where(search_filter)
+    count = session.exec(count_statement).one()
 
-    barcode_statement = select(Product.id).where(Product.barcode == search)
-    barcode_id = session.exec(barcode_statement).one_or_none()
-    if barcode_id is not None:
-        matching_ids.append(barcode_id)
-
-    if fts_query is not None:
-        fts_statement = (
-            select(Product.id)
-            .join(ProductSearchIndex, product_rowid == ProductSearchIndex.rowid)
-            .where(product_fts.op("MATCH")(fts_query))
-            .order_by(func.bm25(product_fts))
+    statement = (
+        select(Product)
+        .where(search_filter)
+        .order_by(
+            case((Product.barcode == search, 0), else_=1),
+            desc(similarity_score),
+            has_image.desc(),
+            Product.id,
         )
-        fts_ids = session.exec(fts_statement).all()
-        matching_ids.extend(fts_ids)
+        .offset(skip)
+        .limit(limit)
+    )
+    products = session.exec(statement).all()
 
-    unique_matching_ids = list(dict.fromkeys(matching_ids))
-    count = len(unique_matching_ids)
-    page_ids = unique_matching_ids[skip : skip + limit]
-
-    if not page_ids:
-        return ProductsPublic(count=count, data=[])
-
-    products = session.exec(select(Product).where(Product.id.in_(page_ids))).all()
-    products_by_id = {product.id: product for product in products}
-    ordered_products = [
-        products_by_id[product_id]
-        for product_id in page_ids
-        if product_id in products_by_id
-    ]
-
-    return ProductsPublic(count=count, data=ordered_products)
+    return ProductsPublic(count=count, data=products)
 
 
 @router.get("/{product_id}", response_model=ProductPublic)
@@ -152,7 +137,7 @@ def product_daily_retail_price_history_chart(
             func.avg(PriceObservation.price_eur).label("average_price_eur"),
             func.min(PriceObservation.price_eur).label("min_price_eur"),
             func.max(PriceObservation.price_eur).label("max_price_eur"),
-            func.max(PriceObservation.is_special_sale).label("has_special_sale"),
+            func.bool_or(PriceObservation.is_special_sale).label("has_special_sale"),
         )
         .join(Retailer, Retailer.id == PriceObservation.retailer_id)
         .where(PriceObservation.product_id == product_id)
@@ -209,7 +194,7 @@ def grouped_product_price_observations(product_id: uuid.UUID, session: SessionDe
             func.avg(PriceObservation.unit_price_eur).label("average_unit_price_eur"),
             func.min(PriceObservation.unit_price_eur).label("min_unit_price_eur"),
             func.max(PriceObservation.unit_price_eur).label("max_unit_price_eur"),
-            func.max(PriceObservation.is_special_sale).label("has_special_sale"),
+            func.bool_or(PriceObservation.is_special_sale).label("has_special_sale"),
             func.count(func.distinct(PriceObservation.store_id)).label("store_count"),
             func.count(PriceObservation.id).label("observation_count"),
         )

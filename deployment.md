@@ -177,7 +177,11 @@ You can set several other environment variables:
 * `SMTP_USER`: The SMTP server user to send emails.
 * `SMTP_PASSWORD`: The SMTP server password to send emails.
 * `EMAILS_FROM_EMAIL`: The email account to send emails from.
-* `SQLITE_DATABASE_PATH`: The SQLite database file path. In Docker Compose this defaults to `/data/app.db` and is stored in the `app-db-data` volume.
+* `POSTGRES_SERVER`: The Postgres server host. In Docker Compose this is `db` for backend containers.
+* `POSTGRES_PORT`: The Postgres server port. The default is `5432`.
+* `POSTGRES_DB`: The Postgres database name.
+* `POSTGRES_USER`: The Postgres user.
+* `POSTGRES_PASSWORD`: The Postgres password.
 * `SENTRY_DSN`: The DSN for Sentry, if you are using it.
 
 ## GitHub Actions Environment Variables

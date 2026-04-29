@@ -46,10 +46,30 @@ emails_from_email:
   help: The email account to send emails from, you can set it later in .env
   default: info@example.com
 
-sqlite_database_path:
+postgres_server:
   type: str
-  help: The SQLite database file path, stored in .env
-  default: ./app.db
+  help: The Postgres server host, stored in .env
+  default: localhost
+
+postgres_port:
+  type: int
+  help: The Postgres server port, stored in .env
+  default: 5432
+
+postgres_db:
+  type: str
+  help: The Postgres database name, stored in .env
+  default: app
+
+postgres_user:
+  type: str
+  help: The Postgres user, stored in .env
+  default: postgres
+
+postgres_password:
+  type: str
+  help: The Postgres password, stored in .env
+  default: changethis
 
 sentry_dsn:
   type: str

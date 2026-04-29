@@ -1,7 +1,3 @@
-from typing import Any
-
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app import crud
@@ -12,17 +8,7 @@ from app.models.retailer import ReailerEnum, Retailer  # noqa: F401
 from app.models.store import Store  # noqa: F401
 from app.models.user import User, UserCreate
 
-engine = create_engine(
-    settings.SQLALCHEMY_DATABASE_URI,
-    connect_args={"check_same_thread": False},
-)
-
-
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection: Any, _connection_record: Any) -> None:
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 
 
 # make sure all SQLModel models are imported before initializing DB

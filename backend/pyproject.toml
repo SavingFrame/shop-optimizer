@@ -20,6 +20,7 @@ dependencies = [
     "pwdlib[argon2,bcrypt]>=0.3.0",
     "celery[redis]>=5.6.3",
     "openfoodfacts>=5.0.1",
+    "psycopg[binary]>=3.1.13,<4.0.0",
 ]
 
 [dependency-groups]

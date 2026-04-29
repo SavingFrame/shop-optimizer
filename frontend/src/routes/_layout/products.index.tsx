@@ -531,6 +531,10 @@ function ProductCard({ product }: ProductCardProps) {
           </div>
 
           <div className="space-y-2 text-sm text-muted-foreground">
+            <ProductMeta
+              label="Latest price"
+              value={formatOptionalCurrency(product.latest_price_eur)}
+            />
             <ProductMeta label="Quantity" value={product.net_quantity} />
             <ProductMeta label="Unit" value={product.unit_of_measure} />
             {product.barcode && (
@@ -598,4 +602,15 @@ function ProductMeta({ label, value }: ProductMetaProps) {
       <span className="truncate font-medium text-foreground">{value}</span>
     </div>
   )
+}
+
+function formatOptionalCurrency(value?: string | null) {
+  if (!value) {
+    return undefined
+  }
+
+  return new Intl.NumberFormat("hr-HR", {
+    currency: "EUR",
+    style: "currency",
+  }).format(Number(value))
 }

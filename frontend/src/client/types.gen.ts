@@ -120,6 +120,10 @@ export type ProductPublic = {
      */
     image_url?: (string | null);
     id: string;
+    /**
+     * Product price from one latest available observation.
+     */
+    latest_price_eur?: (string | null);
 };
 
 export type ProductsPublic = {
@@ -445,6 +449,12 @@ export type ReceiptsUpdateReceiptData = {
 };
 
 export type ReceiptsUpdateReceiptResponse = (Receipt);
+
+export type ReceiptsDeleteReceiptData = {
+    receiptId: string;
+};
+
+export type ReceiptsDeleteReceiptResponse = unknown;
 
 export type ReceiptsReadReceiptItemsData = {
     receiptId: string;

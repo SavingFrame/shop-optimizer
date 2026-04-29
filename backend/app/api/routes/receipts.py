@@ -1,10 +1,12 @@
 import uuid
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from sqlmodel import SQLModel, func, select
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from sqlmodel import SQLModel, delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
+from app.core.config import settings
 from app.models.product import Product, ProductPublic
 from app.models.receipt import (
     Receipt,
@@ -119,6 +121,22 @@ def update_receipt(
     session.commit()
     session.refresh(receipt)
     return receipt
+
+
+@router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_receipt(
+    receipt_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> None:
+    receipt = _get_user_receipt(session, current_user.id, receipt_id)
+    file_key = receipt.file_key
+
+    session.exec(delete(ReceiptItem).where(ReceiptItem.receipt_id == receipt.id))
+    session.delete(receipt)
+    session.commit()
+
+    (Path(settings.RECEIPT_UPLOAD_DIR) / file_key).unlink(missing_ok=True)
 
 
 @router.get("/{receipt_id}/items", response_model=list[ReceiptItemReviewPublic])

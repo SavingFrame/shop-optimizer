@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from pydantic import model_validator
@@ -68,6 +69,10 @@ class ProductCreate(ProductBase):
 
 class ProductPublic(ProductBase):
     id: uuid.UUID
+    latest_price_eur: Decimal | None = Field(
+        default=None,
+        description="Product price from one latest available observation.",
+    )
 
     @model_validator(mode="after")
     def set_default_image_url(self) -> "ProductPublic":

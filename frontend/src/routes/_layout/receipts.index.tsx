@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { CalendarClock, FileText, ReceiptText, Upload } from "lucide-react"
+import {
+  CalendarClock,
+  FileText,
+  ReceiptText,
+  Trash2,
+  Upload,
+} from "lucide-react"
 import { useState } from "react"
 
 import { type ReceiptPublic, ReceiptsService } from "@/client"
@@ -13,6 +19,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
@@ -193,15 +209,19 @@ type ReceiptRowProps = {
 
 function ReceiptRow({ receipt }: ReceiptRowProps) {
   return (
-    <Link
-      className="grid gap-4 rounded-2xl border bg-background/60 p-4 transition hover:border-primary/40 hover:bg-background sm:grid-cols-[auto_1fr_auto] sm:items-center"
-      params={{ receiptId: receipt.id }}
-      to="/receipts/$receiptId"
-    >
-      <div className="flex size-14 items-center justify-center rounded-2xl border bg-muted/40 text-primary">
+    <div className="grid gap-4 rounded-2xl border bg-background/60 p-4 transition hover:border-primary/40 hover:bg-background sm:grid-cols-[auto_1fr_auto] sm:items-center">
+      <Link
+        className="flex size-14 items-center justify-center rounded-2xl border bg-muted/40 text-primary"
+        params={{ receiptId: receipt.id }}
+        to="/receipts/$receiptId"
+      >
         <FileText className="size-6" />
-      </div>
-      <div className="min-w-0 space-y-2">
+      </Link>
+      <Link
+        className="min-w-0 space-y-2"
+        params={{ receiptId: receipt.id }}
+        to="/receipts/$receiptId"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium">SPAR receipt</p>
           <Badge
@@ -217,9 +237,67 @@ function ReceiptRow({ receipt }: ReceiptRowProps) {
           </span>
           <span>Total {formatCurrency(receipt.total_eur)}</span>
         </div>
+      </Link>
+      <div className="flex flex-wrap gap-2 sm:justify-end">
+        <Button asChild variant="outline">
+          <Link params={{ receiptId: receipt.id }} to="/receipts/$receiptId">
+            Review
+          </Link>
+        </Button>
+        <DeleteReceiptButton receiptId={receipt.id} />
       </div>
-      <Button variant="outline">Review</Button>
-    </Link>
+    </div>
+  )
+}
+
+function DeleteReceiptButton({ receiptId }: { receiptId: string }) {
+  const queryClient = useQueryClient()
+  const { showErrorToast, showSuccessToast } = useCustomToast()
+  const [isOpen, setIsOpen] = useState(false)
+
+  const deleteMutation = useMutation({
+    mutationFn: () => ReceiptsService.deleteReceipt({ receiptId }),
+    onError: () => {
+      showErrorToast("Could not delete receipt.")
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["receipts"] })
+      showSuccessToast("Receipt deleted.")
+      setIsOpen(false)
+    },
+  })
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button size="icon" title="Delete receipt" variant="destructive">
+          <Trash2 className="size-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete receipt</DialogTitle>
+          <DialogDescription>
+            This receipt and its parsed lines will be permanently deleted. This
+            action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button disabled={deleteMutation.isPending} variant="outline">
+              Cancel
+            </Button>
+          </DialogClose>
+          <LoadingButton
+            loading={deleteMutation.isPending}
+            onClick={() => deleteMutation.mutate()}
+            variant="destructive"
+          >
+            Delete
+          </LoadingButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

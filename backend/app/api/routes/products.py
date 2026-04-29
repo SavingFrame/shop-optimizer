@@ -16,6 +16,19 @@ from app.models.store import StorePublic
 
 router = APIRouter(prefix="/products", tags=["products"])
 
+
+def serialize_products_with_latest_price(
+    rows: list[tuple[Product, Decimal]],
+) -> list[ProductPublic]:
+    products = []
+    for product, latest_price_eur in rows:
+        product_public = ProductPublic.model_validate(product)
+        product_public.latest_price_eur = latest_price_eur
+        products.append(product_public)
+
+    return products
+
+
 @router.get("", response_model=ProductsPublic)
 def read_products(
     session: SessionDep,
@@ -26,6 +39,14 @@ def read_products(
     search = q.strip() if q else None
 
     coverage_date = func.current_date() - 1
+
+    latest_product_price_subquery = (
+        select(PriceObservation.price_eur)
+        .where(PriceObservation.product_id == Product.id)
+        .order_by(desc(PriceObservation.observed_date), PriceObservation.id)
+        .limit(1)
+        .scalar_subquery()
+    )
 
     if not search:
         count_statement = select(
@@ -48,7 +69,10 @@ def read_products(
         has_image = (Product.image_url.is_not(None)) & (Product.image_url != "")
 
         statement = (
-            select(Product)
+            select(
+                Product,
+                latest_product_price_subquery.label("latest_price_eur"),
+            )
             .join(product_coverage, product_coverage.c.product_id == Product.id)
             .order_by(
                 has_image.desc(),
@@ -59,9 +83,12 @@ def read_products(
             .offset(skip)
             .limit(limit)
         )
-        products = session.exec(statement).all()
+        rows = session.exec(statement).all()
 
-        return ProductsPublic(count=count, data=products)
+        return ProductsPublic(
+            count=count,
+            data=serialize_products_with_latest_price(rows),
+        )
 
     search_pattern = f"%{search}%"
     alias_search_filter = or_(
@@ -129,7 +156,10 @@ def read_products(
     )
 
     statement = (
-        select(Product)
+        select(
+            Product,
+            latest_product_price_subquery.label("latest_price_eur"),
+        )
         .outerjoin(alias_scores, alias_scores.c.product_id == Product.id)
         .outerjoin(product_coverage, product_coverage.c.product_id == Product.id)
         .where(product_search_filter)
@@ -144,9 +174,12 @@ def read_products(
         .offset(skip)
         .limit(limit)
     )
-    products = session.exec(statement).all()
+    rows = session.exec(statement).all()
 
-    return ProductsPublic(count=count, data=products)
+    return ProductsPublic(
+        count=count,
+        data=serialize_products_with_latest_price(rows),
+    )
 
 
 @router.get("/{product_id}", response_model=ProductPublic)

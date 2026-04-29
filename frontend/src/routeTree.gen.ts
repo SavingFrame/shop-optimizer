@@ -16,9 +16,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutReceiptsRouteImport } from './routes/_layout/receipts'
 import { Route as LayoutProductsRouteImport } from './routes/_layout/products'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutReceiptsIndexRouteImport } from './routes/_layout/receipts.index'
 import { Route as LayoutProductsIndexRouteImport } from './routes/_layout/products.index'
+import { Route as LayoutReceiptsReceiptIdRouteImport } from './routes/_layout/receipts.$receiptId'
 import { Route as LayoutProductsProductIdRouteImport } from './routes/_layout/products.$productId'
 
 const SignupRoute = SignupRouteImport.update({
@@ -55,6 +58,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutReceiptsRoute = LayoutReceiptsRouteImport.update({
+  id: '/receipts',
+  path: '/receipts',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutProductsRoute = LayoutProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -65,10 +73,20 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutReceiptsIndexRoute = LayoutReceiptsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutReceiptsRoute,
+} as any)
 const LayoutProductsIndexRoute = LayoutProductsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => LayoutProductsRoute,
+} as any)
+const LayoutReceiptsReceiptIdRoute = LayoutReceiptsReceiptIdRouteImport.update({
+  id: '/$receiptId',
+  path: '/$receiptId',
+  getParentRoute: () => LayoutReceiptsRoute,
 } as any)
 const LayoutProductsProductIdRoute = LayoutProductsProductIdRouteImport.update({
   id: '/$productId',
@@ -84,9 +102,12 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/products': typeof LayoutProductsRouteWithChildren
+  '/receipts': typeof LayoutReceiptsRouteWithChildren
   '/settings': typeof LayoutSettingsRoute
   '/products/$productId': typeof LayoutProductsProductIdRoute
+  '/receipts/$receiptId': typeof LayoutReceiptsReceiptIdRoute
   '/products/': typeof LayoutProductsIndexRoute
+  '/receipts/': typeof LayoutReceiptsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -97,7 +118,9 @@ export interface FileRoutesByTo {
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
   '/products/$productId': typeof LayoutProductsProductIdRoute
+  '/receipts/$receiptId': typeof LayoutReceiptsReceiptIdRoute
   '/products': typeof LayoutProductsIndexRoute
+  '/receipts': typeof LayoutReceiptsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -108,10 +131,13 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/products': typeof LayoutProductsRouteWithChildren
+  '/_layout/receipts': typeof LayoutReceiptsRouteWithChildren
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/products/$productId': typeof LayoutProductsProductIdRoute
+  '/_layout/receipts/$receiptId': typeof LayoutReceiptsReceiptIdRoute
   '/_layout/products/': typeof LayoutProductsIndexRoute
+  '/_layout/receipts/': typeof LayoutReceiptsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -123,9 +149,12 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/products'
+    | '/receipts'
     | '/settings'
     | '/products/$productId'
+    | '/receipts/$receiptId'
     | '/products/'
+    | '/receipts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -136,7 +165,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/'
     | '/products/$productId'
+    | '/receipts/$receiptId'
     | '/products'
+    | '/receipts'
   id:
     | '__root__'
     | '/_layout'
@@ -146,10 +177,13 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_layout/admin'
     | '/_layout/products'
+    | '/_layout/receipts'
     | '/_layout/settings'
     | '/_layout/'
     | '/_layout/products/$productId'
+    | '/_layout/receipts/$receiptId'
     | '/_layout/products/'
+    | '/_layout/receipts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -211,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/receipts': {
+      id: '/_layout/receipts'
+      path: '/receipts'
+      fullPath: '/receipts'
+      preLoaderRoute: typeof LayoutReceiptsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/products': {
       id: '/_layout/products'
       path: '/products'
@@ -225,12 +266,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/receipts/': {
+      id: '/_layout/receipts/'
+      path: '/'
+      fullPath: '/receipts/'
+      preLoaderRoute: typeof LayoutReceiptsIndexRouteImport
+      parentRoute: typeof LayoutReceiptsRoute
+    }
     '/_layout/products/': {
       id: '/_layout/products/'
       path: '/'
       fullPath: '/products/'
       preLoaderRoute: typeof LayoutProductsIndexRouteImport
       parentRoute: typeof LayoutProductsRoute
+    }
+    '/_layout/receipts/$receiptId': {
+      id: '/_layout/receipts/$receiptId'
+      path: '/$receiptId'
+      fullPath: '/receipts/$receiptId'
+      preLoaderRoute: typeof LayoutReceiptsReceiptIdRouteImport
+      parentRoute: typeof LayoutReceiptsRoute
     }
     '/_layout/products/$productId': {
       id: '/_layout/products/$productId'
@@ -256,9 +311,24 @@ const LayoutProductsRouteWithChildren = LayoutProductsRoute._addFileChildren(
   LayoutProductsRouteChildren,
 )
 
+interface LayoutReceiptsRouteChildren {
+  LayoutReceiptsReceiptIdRoute: typeof LayoutReceiptsReceiptIdRoute
+  LayoutReceiptsIndexRoute: typeof LayoutReceiptsIndexRoute
+}
+
+const LayoutReceiptsRouteChildren: LayoutReceiptsRouteChildren = {
+  LayoutReceiptsReceiptIdRoute: LayoutReceiptsReceiptIdRoute,
+  LayoutReceiptsIndexRoute: LayoutReceiptsIndexRoute,
+}
+
+const LayoutReceiptsRouteWithChildren = LayoutReceiptsRoute._addFileChildren(
+  LayoutReceiptsRouteChildren,
+)
+
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
   LayoutProductsRoute: typeof LayoutProductsRouteWithChildren
+  LayoutReceiptsRoute: typeof LayoutReceiptsRouteWithChildren
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
 }
@@ -266,6 +336,7 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
   LayoutProductsRoute: LayoutProductsRouteWithChildren,
+  LayoutReceiptsRoute: LayoutReceiptsRouteWithChildren,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
 }

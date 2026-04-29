@@ -41,7 +41,7 @@ class ReceiptItemUpdate(SQLModel):
     is_skipped: bool | None = None
 
 
-@router.post("", response_model=Receipt)
+@router.post("", response_model=ReceiptPublic)
 async def create_receipt(
     session: SessionDep,
     current_user: CurrentUser,
@@ -130,7 +130,7 @@ def read_receipts(
     return ReceiptsPublic(data=receipts, count=count)
 
 
-@router.get("/{receipt_id}", response_model=Receipt)
+@router.get("/{receipt_id}", response_model=ReceiptPublic)
 def read_receipt(
     receipt_id: uuid.UUID,
     session: SessionDep,
@@ -140,7 +140,7 @@ def read_receipt(
     return receipt
 
 
-@router.patch("/{receipt_id}", response_model=Receipt)
+@router.patch("/{receipt_id}", response_model=ReceiptPublic)
 def update_receipt(
     receipt_id: uuid.UUID,
     receipt_in: ReceiptUpdate,
@@ -167,6 +167,17 @@ def update_receipt(
     session.commit()
     session.refresh(receipt)
     return receipt
+
+
+@router.get("/{receipt_id}/items", response_model=list[ReceiptItemReviewPublic])
+def read_receipt_items(
+    receipt_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[ReceiptItem]:
+    receipt = _get_user_receipt(session, current_user.id, receipt_id)
+    items = _get_receipt_items(session, receipt.id)
+    return items
 
 
 @router.patch("/{receipt_id}/items/{item_id}", response_model=ReceiptItemReviewPublic)

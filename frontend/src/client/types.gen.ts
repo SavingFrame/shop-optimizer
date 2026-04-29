@@ -446,6 +446,12 @@ export type ReceiptsUpdateReceiptData = {
 
 export type ReceiptsUpdateReceiptResponse = (Receipt);
 
+export type ReceiptsReadReceiptItemsData = {
+    receiptId: string;
+};
+
+export type ReceiptsReadReceiptItemsResponse = (Array<ReceiptItemReviewPublic>);
+
 export type ReceiptsUpdateReceiptItemData = {
     itemId: string;
     receiptId: string;

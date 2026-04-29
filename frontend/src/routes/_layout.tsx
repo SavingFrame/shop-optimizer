@@ -44,9 +44,9 @@ function Layout() {
             <a className="transition hover:text-foreground" href="#basket">
               Basket
             </a>
-            <a className="transition hover:text-foreground" href="#receipts">
+            <Link className="transition hover:text-foreground" to="/receipts">
               Receipts
-            </a>
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -57,10 +57,10 @@ function Layout() {
               </Link>
             </Button>
             <Button size="sm" className="hidden sm:inline-flex" asChild>
-              <a href="#receipts">
+              <Link to="/receipts">
                 <ReceiptText className="size-4" />
                 Receipt upload
-              </a>
+              </Link>
             </Button>
             {loggedIn ? (
               <>

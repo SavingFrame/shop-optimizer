@@ -449,6 +449,13 @@ export type ProductListsReadProductListsData = {
 
 export type ProductListsReadProductListsResponse = (ProductListsPublic);
 
+export type ProductListsCreateProductListFromReceiptData = {
+    receiptId: string;
+    requestBody: ProductListBase;
+};
+
+export type ProductListsCreateProductListFromReceiptResponse = (ProductListPublic);
+
 export type ProductListsReadProductListData = {
     productListId: string;
 };

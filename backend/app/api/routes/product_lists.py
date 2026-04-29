@@ -17,6 +17,7 @@ from app.models.product_list import (
     ProductListPublic,
     ProductListsPublic,
 )
+from app.models.receipt import Receipt, ReceiptItem
 from app.models.retailer import Retailer, RetailerPublic
 
 router = APIRouter(prefix="/product-lists", tags=["product-lists"])
@@ -76,6 +77,79 @@ def create_product_list(
         description=list_in.description,
     )
     session.add(product_list)
+    session.commit()
+    session.refresh(product_list)
+    return product_list
+
+
+@router.post("/from-receipt/{receipt_id}", response_model=ProductListPublic)
+def create_product_list_from_receipt(
+    receipt_id: uuid.UUID,
+    list_in: ProductListBase,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> ProductList:
+    receipt = session.exec(
+        select(Receipt).where(
+            Receipt.id == receipt_id,
+            Receipt.user_id == current_user.id,
+        )
+    ).first()
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    existing_list = session.exec(
+        select(ProductList).where(
+            ProductList.user_id == current_user.id,
+            ProductList.name == list_in.name,
+        )
+    ).first()
+    if existing_list is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Product list with this name already exists",
+        )
+
+    receipt_items = session.exec(
+        select(ReceiptItem)
+        .where(
+            ReceiptItem.receipt_id == receipt.id,
+            ReceiptItem.is_skipped == False,  # noqa: E712
+            ReceiptItem.product_id.is_not(None),
+        )
+        .order_by(ReceiptItem.line_number)
+    ).all()
+    if not receipt_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Receipt has no matched items to add to a product list",
+        )
+
+    quantities: dict[uuid.UUID, Decimal] = {}
+    for item in receipt_items:
+        if item.product_id is None:
+            continue
+        quantities[item.product_id] = (
+            quantities.get(item.product_id, Decimal("0")) + item.quantity
+        )
+
+    product_list = ProductList(
+        user_id=current_user.id,
+        name=list_in.name,
+        description=list_in.description,
+    )
+    session.add(product_list)
+    session.flush()
+
+    for product_id, quantity in quantities.items():
+        session.add(
+            ProductListItem(
+                product_list_id=product_list.id,
+                product_id=product_id,
+                quantity=quantity,
+            )
+        )
+
     session.commit()
     session.refresh(product_list)
     return product_list

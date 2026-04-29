@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductListsCreateProductListData, ProductListsCreateProductListResponse, ProductListsReadProductListsData, ProductListsReadProductListsResponse, ProductListsReadProductListData, ProductListsReadProductListResponse, ProductListsUpdateProductListData, ProductListsUpdateProductListResponse, ProductListsDeleteProductListData, ProductListsDeleteProductListResponse, ProductListsProductListRetailPriceHistoryChartData, ProductListsProductListRetailPriceHistoryChartResponse, ProductListsReadProductListItemsData, ProductListsReadProductListItemsResponse, ProductListsCreateProductListItemData, ProductListsCreateProductListItemResponse, ProductListsUpdateProductListItemData, ProductListsUpdateProductListItemResponse, ProductListsDeleteProductListItemData, ProductListsDeleteProductListItemResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsDeleteReceiptData, ReceiptsDeleteReceiptResponse, ReceiptsReadReceiptItemsData, ReceiptsReadReceiptItemsResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductListsCreateProductListData, ProductListsCreateProductListResponse, ProductListsReadProductListsData, ProductListsReadProductListsResponse, ProductListsCreateProductListFromReceiptData, ProductListsCreateProductListFromReceiptResponse, ProductListsReadProductListData, ProductListsReadProductListResponse, ProductListsUpdateProductListData, ProductListsUpdateProductListResponse, ProductListsDeleteProductListData, ProductListsDeleteProductListResponse, ProductListsProductListRetailPriceHistoryChartData, ProductListsProductListRetailPriceHistoryChartResponse, ProductListsReadProductListItemsData, ProductListsReadProductListItemsResponse, ProductListsCreateProductListItemData, ProductListsCreateProductListItemResponse, ProductListsUpdateProductListItemData, ProductListsUpdateProductListItemResponse, ProductListsDeleteProductListItemData, ProductListsDeleteProductListItemResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsDeleteReceiptData, ReceiptsDeleteReceiptResponse, ReceiptsReadReceiptItemsData, ReceiptsReadReceiptItemsResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class DashboardService {
     /**
@@ -182,6 +182,29 @@ export class ProductListsService {
                 skip: data.skip,
                 limit: data.limit
             },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Product List From Receipt
+     * @param data The data for the request.
+     * @param data.receiptId
+     * @param data.requestBody
+     * @returns ProductListPublic Successful Response
+     * @throws ApiError
+     */
+    public static createProductListFromReceipt(data: ProductListsCreateProductListFromReceiptData): CancelablePromise<ProductListsCreateProductListFromReceiptResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/product-lists/from-receipt/{receipt_id}',
+            path: {
+                receipt_id: data.receiptId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
             errors: {
                 422: 'Validation Error'
             }

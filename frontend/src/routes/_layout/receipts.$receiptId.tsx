@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import {
   AlertTriangle,
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CircleSlash,
   ImageIcon,
+  ListChecks,
   PackageSearch,
   ReceiptText,
   Search,
@@ -14,6 +15,7 @@ import {
 import { useEffect, useMemo, useState } from "react"
 
 import {
+  ProductListsService,
   type ProductPublic,
   ProductsService,
   type ReceiptItemReviewPublic,
@@ -30,7 +32,16 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Sheet,
@@ -64,7 +75,9 @@ export const Route = createFileRoute("/_layout/receipts/$receiptId")({
 function ReceiptDetailPage() {
   const { receiptId } = Route.useParams()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { showErrorToast, showSuccessToast } = useCustomToast()
+  const [createListOpen, setCreateListOpen] = useState(false)
 
   const receiptQuery = useQuery({
     queryKey: ["receipts", receiptId],
@@ -212,9 +225,32 @@ function ReceiptDetailPage() {
                 Complete receipt
               </LoadingButton>
             )}
+            <Button
+              className="w-full"
+              disabled={stats.matched === 0}
+              onClick={() => setCreateListOpen(true)}
+              variant="outline"
+            >
+              <ListChecks className="size-4" />
+              Create product list
+            </Button>
           </CardContent>
         </Card>
       </section>
+
+      <CreateProductListFromReceiptDialog
+        defaultName={buildDefaultListName(receipt)}
+        onOpenChange={setCreateListOpen}
+        onSuccess={(productList) => {
+          setCreateListOpen(false)
+          navigate({
+            params: { productListId: productList.id },
+            to: "/product-lists/$productListId",
+          })
+        }}
+        open={createListOpen}
+        receiptId={receiptId}
+      />
 
       <Card>
         <CardHeader>
@@ -800,4 +836,107 @@ function formatCurrency(value?: string | null) {
 
 function formatOptionalCurrency(value?: string | null) {
   return value ? formatCurrency(value) : "Not available"
+}
+
+type CreateProductListFromReceiptDialogProps = {
+  defaultName: string
+  onOpenChange: (open: boolean) => void
+  onSuccess: (productList: { id: string }) => void
+  open: boolean
+  receiptId: string
+}
+
+function CreateProductListFromReceiptDialog({
+  defaultName,
+  onOpenChange,
+  onSuccess,
+  open,
+  receiptId,
+}: CreateProductListFromReceiptDialogProps) {
+  const { showErrorToast, showSuccessToast } = useCustomToast()
+  const [name, setName] = useState(defaultName)
+  const [description, setDescription] = useState("")
+
+  useEffect(() => {
+    if (open) {
+      setName(defaultName)
+      setDescription("")
+    }
+  }, [defaultName, open])
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      ProductListsService.createProductListFromReceipt({
+        receiptId,
+        requestBody: {
+          description: description.trim() || null,
+          name: name.trim(),
+        },
+      }),
+    onError: () => {
+      showErrorToast(
+        "Could not create product list. Make sure the name is unique and the receipt has matched items.",
+      )
+    },
+    onSuccess: (productList) => {
+      showSuccessToast("Product list created from receipt.")
+      onSuccess(productList)
+    },
+  })
+
+  const canCreate = name.trim().length > 0
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create product list from receipt</DialogTitle>
+          <DialogDescription>
+            All matched, non-skipped lines will be added as products.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="from-receipt-list-name">Name</Label>
+            <Input
+              id="from-receipt-list-name"
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Weekly groceries"
+              value={name}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="from-receipt-list-description">Description</Label>
+            <Input
+              id="from-receipt-list-description"
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Optional note"
+              value={description}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <LoadingButton
+            disabled={!canCreate}
+            loading={createMutation.isPending}
+            onClick={() => createMutation.mutate()}
+          >
+            <ListChecks className="size-4" />
+            Create list
+          </LoadingButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function buildDefaultListName(receipt?: ReceiptPublic | null) {
+  if (!receipt?.purchase_datetime) {
+    return "Receipt list"
+  }
+
+  const date = new Intl.DateTimeFormat("hr-HR", { dateStyle: "medium" }).format(
+    new Date(receipt.purchase_datetime),
+  )
+  return `Receipt — ${date}`
 }

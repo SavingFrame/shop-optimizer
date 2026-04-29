@@ -1,14 +1,11 @@
 import uuid
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from sqlmodel import SQLModel, func, or_, select
+from sqlmodel import SQLModel, func, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.core.config import settings
 from app.models.product import Product, ProductPublic
-from app.models.product_alias import ProductAlias
 from app.models.receipt import (
     Receipt,
     ReceiptItem,
@@ -16,9 +13,7 @@ from app.models.receipt import (
     ReceiptPublic,
     ReceiptStatus,
 )
-from app.models.retailer import Retailer
-from app.models.store import Store
-from app.services.receipt_parser import ParsedReceiptItem, parse_spar_receipt
+from app.services.receipts.ingestion import receipt_ingestion_service
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
@@ -49,58 +44,15 @@ async def create_receipt(
     store_id: uuid.UUID | None = Form(default=None),
     file: UploadFile = File(...),
 ) -> Any:
-    retailer = session.get(Retailer, retailer_id)
-    if retailer is None:
-        raise HTTPException(status_code=404, detail="Retailer not found")
-    if retailer.name.lower() not in {"spar", "interspar"}:
-        raise HTTPException(status_code=400, detail="Only SPAR receipts are supported")
-
-    if store_id is not None:
-        store = session.get(Store, store_id)
-        if store is None or store.retailer_id != retailer.id:
-            raise HTTPException(status_code=400, detail="Invalid store for retailer")
-
     content = await file.read()
-    file_key = _store_receipt_file(content=content, filename=file.filename)
-    parsed_receipt = parse_spar_receipt(content)
-
-    receipt = Receipt(
-        retailer_id=retailer.id,
-        store_id=store_id,
+    return await receipt_ingestion_service.create_receipt_from_upload(
+        session=session,
         user_id=current_user.id,
-        purchase_datetime=parsed_receipt.purchase_datetime,
-        total_eur=parsed_receipt.total_eur,
-        file_key=file_key,
-        status=ReceiptStatus.DRAFT,
-        raw_text=parsed_receipt.raw_text,
+        retailer_id=retailer_id,
+        store_id=store_id,
+        filename=file.filename,
+        content=content,
     )
-    session.add(receipt)
-
-    receipt_items: list[ReceiptItem] = []
-    matched_products: list[tuple[ParsedReceiptItem, Product]] = []
-    for parsed_item in parsed_receipt.items:
-        product = _find_matching_product(session, retailer.id, parsed_item)
-        if product is not None:
-            matched_products.append((parsed_item, product))
-
-        receipt_items.append(
-            ReceiptItem(
-                receipt_id=receipt.id,
-                product_id=product.id if product else None,
-                line_number=parsed_item.line_number,
-                raw_name=parsed_item.raw_name,
-                normalized_raw_name=parsed_item.normalized_raw_name,
-                quantity=parsed_item.quantity,
-                unit_of_measure=parsed_item.unit_of_measure,
-                unit_price_eur=parsed_item.unit_price_eur,
-                line_total_eur=parsed_item.line_total_eur,
-            ),
-        )
-
-    session.add_all(receipt_items)
-
-    session.commit()
-    return receipt
 
 
 @router.get("", response_model=ReceiptsPublic)
@@ -219,42 +171,6 @@ def update_receipt_item(
     session.commit()
     session.refresh(item)
     return item
-
-
-def _store_receipt_file(content: bytes, filename: str | None) -> str:
-    upload_dir = Path(settings.RECEIPT_UPLOAD_DIR)
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    suffix = Path(filename or "receipt.pdf").suffix or ".pdf"
-    file_key = f"{uuid.uuid4()}{suffix}"
-    (upload_dir / file_key).write_bytes(content)
-    return file_key
-
-
-def _find_matching_product(
-    session: SessionDep,
-    retailer_id: uuid.UUID,
-    parsed_item: ParsedReceiptItem,
-) -> Product | None:
-    alias_statement = (
-        select(Product)
-        .join(ProductAlias)
-        .where(
-            ProductAlias.normalized_alias_name == parsed_item.normalized_raw_name,
-            or_(
-                ProductAlias.retailer_id == retailer_id,
-                ProductAlias.retailer_id.is_(None),
-            ),
-        )
-        .limit(1)
-    )
-    product = session.exec(alias_statement).first()
-    if product is not None:
-        return product
-
-    product_statement = select(Product).where(
-        func.lower(Product.name) == parsed_item.normalized_raw_name,
-    )
-    return session.exec(product_statement).first()
 
 
 def _get_user_receipt(

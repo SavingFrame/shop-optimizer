@@ -98,8 +98,6 @@ async def create_receipt(
         )
 
     session.add_all(receipt_items)
-    for parsed_item, product in matched_products:
-        _upsert_receipt_alias(session, retailer.id, parsed_item, product)
 
     session.commit()
     return receipt

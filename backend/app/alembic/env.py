@@ -23,6 +23,7 @@ from app.core.config import settings  # noqa
 from app.models.price_observation import PriceObservation  # noqa
 from app.models.product import Product  # noqa
 from app.models.product_alias import ProductAlias  # noqa
+from app.models.product_list import ProductList, ProductListItem  # noqa
 from app.models.receipt import Receipt, ReceiptItem  # noqa
 from app.models.retailer import Retailer  # noqa
 from app.models.store import Store  # noqa

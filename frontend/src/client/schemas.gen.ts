@@ -327,19 +327,6 @@ export const ProductPublicSchema = {
             title: 'Name',
             description: 'Canonical or first seen product name. Original CSV column: naziv or NAZIV PROIZVODA.'
         },
-        alternative_name: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Alternative Name',
-            description: 'Alternative product name fetched from Open Food Facts, preferring Croatian names.'
-        },
         brand: {
             anyOf: [
                 {

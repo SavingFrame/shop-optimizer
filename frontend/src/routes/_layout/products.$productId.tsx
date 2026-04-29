@@ -183,8 +183,6 @@ type ProductHeroProps = {
 }
 
 function ProductHero({ pricesCount, product }: ProductHeroProps) {
-  const alternativeName = getDisplayAlternativeName(product)
-
   return (
     <section className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
       <Card className="overflow-hidden bg-card/80">
@@ -203,11 +201,6 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
             <CardTitle className="text-3xl leading-tight sm:text-5xl">
               {product.name}
             </CardTitle>
-            {alternativeName && (
-              <p className="text-lg font-medium text-muted-foreground">
-                {alternativeName}
-              </p>
-            )}
             <CardDescription className="text-base leading-7">
               Compare current shop price observations for this normalized
               product.
@@ -222,13 +215,6 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
           />
           <InfoTile icon={Ruler} label="Unit" value={product.unit_of_measure} />
           <InfoTile icon={Barcode} label="Barcode" value={product.barcode} />
-          {alternativeName && (
-            <InfoTile
-              icon={Tags}
-              label="Alternative name"
-              value={alternativeName}
-            />
-          )}
           <InfoTile
             icon={Store}
             label="Retailer prices"
@@ -238,22 +224,6 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
       </Card>
     </section>
   )
-}
-
-function getDisplayAlternativeName(product: ProductPublic) {
-  const alternativeName = product.alternative_name?.trim()
-
-  if (!alternativeName) {
-    return undefined
-  }
-
-  if (
-    alternativeName.toLocaleLowerCase() === product.name.toLocaleLowerCase()
-  ) {
-    return undefined
-  }
-
-  return alternativeName
 }
 
 type PriceObservationsProps = {

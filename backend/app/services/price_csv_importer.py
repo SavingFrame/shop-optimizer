@@ -6,11 +6,14 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, ClassVar
 
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models.price_observation import PriceObservation
 from app.models.product import Product
+from app.models.product_alias import ProductAlias, ProductAliasSource
 from app.models.retailer import ReailerEnum
 from app.models.store import Store
 
@@ -178,6 +181,14 @@ class PriceCsvImporter:
                 continue
 
             product, product_created = self._get_or_create_product(session, normalized)
+            self._upsert_alias(
+                session=session,
+                store=store,
+                normalized=normalized,
+                product=product,
+                source=ProductAliasSource.PRICE_CSV,
+                confidence=Decimal("0.9500"),
+            )
             observation, observation_created = self._upsert_observation(
                 session=session,
                 store=store,
@@ -264,6 +275,53 @@ class PriceCsvImporter:
             )
         ).first()
 
+    @staticmethod
+    def _normalize_alias_name(value: str) -> str:
+        return " ".join(value.strip().lower().split())
+
+    def _upsert_alias(
+        self,
+        session: Session,
+        store: Store,
+        normalized: NormalizedPriceRow,
+        product: Product,
+        source: ProductAliasSource,
+        confidence: Decimal,
+    ) -> None:
+        retailer_id = store.retailer_id
+        retailer_product_code = normalized.retailer_product_code
+        alias_name = normalized.source_product_name
+        statement = insert(ProductAlias).values(
+            product_id=product.id,
+            retailer_id=retailer_id,
+            alias_name=alias_name,
+            normalized_alias_name=self._normalize_alias_name(alias_name),
+            retailer_product_code=retailer_product_code,
+            source=source.value,
+            confidence=confidence,
+            first_seen_at=func.now(),
+            last_seen_at=func.now(),
+        )
+        excluded = statement.excluded
+        statement = statement.on_conflict_do_update(
+            index_elements=[
+                ProductAlias.product_id,
+                ProductAlias.retailer_id,
+                ProductAlias.normalized_alias_name,
+                ProductAlias.retailer_product_code,
+                ProductAlias.source,
+            ],
+            set_={
+                ProductAlias.alias_name: excluded.alias_name,
+                ProductAlias.confidence: func.greatest(
+                    ProductAlias.confidence,
+                    excluded.confidence,
+                ),
+                ProductAlias.last_seen_at: excluded.last_seen_at,
+            },
+        )
+        session.exec(statement)
+
     def _upsert_observation(
         self,
         session: Session,
@@ -275,8 +333,7 @@ class PriceCsvImporter:
             PriceObservation.retailer_id == store.retailer_id,
             PriceObservation.store_id == store.id,
             PriceObservation.observed_date == self.observed_date,
-            PriceObservation.retailer_product_code
-            == normalized.retailer_product_code,
+            PriceObservation.retailer_product_code == normalized.retailer_product_code,
             PriceObservation.product_id == product.id,
         )
         observation = session.exec(statement).first()

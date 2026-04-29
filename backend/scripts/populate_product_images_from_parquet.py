@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Populate product.image_url and product.alternative_name from an Open Food Facts Parquet export.
+"""Populate product.image_url and product aliases from an Open Food Facts Parquet export.
 
 Run from the repository root:
 
     uvx --with duckdb python backend/scripts/populate_product_images_from_parquet.py \
         ./food.parquet --db ./backend/app.db
 
-By default, only products with a missing image_url or alternative_name are updated
+By default, only products with a missing image_url or Open Food Facts alias are updated
 and a SQLite backup is created next to the database before writing.
 """
 
@@ -22,7 +22,7 @@ from typing import Any
 import duckdb
 
 OPENFOODFACTS_IMAGE_BASE_URL = "https://images.openfoodfacts.org/images/products"
-ALTERNATIVE_NAME_LANGUAGE_PRIORITY = ("hr", "main", "en")
+ALIAS_NAME_LANGUAGE_PRIORITY = ("hr", "main", "en")
 
 
 LANGUAGE_PRIORITY = {
@@ -39,7 +39,7 @@ LANGUAGE_PRIORITY = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Populate product.image_url and product.alternative_name from an "
+            "Populate product.image_url and product aliases from an "
             "Open Food Facts Parquet file."
         )
     )
@@ -53,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Update products even when image_url or alternative_name is already populated.",
+        help="Update products even when image_url or Open Food Facts alias exists.",
     )
     parser.add_argument(
         "--dry-run",
@@ -115,7 +115,7 @@ def select_image_url(code: str, images: list[dict[str, Any]] | None) -> str | No
     return f"{OPENFOODFACTS_IMAGE_BASE_URL}/{product_path}/{key}.{rev}.400.jpg"
 
 
-def select_alternative_name(
+def select_alias_name(
     product_names: list[dict[str, Any]] | None,
 ) -> str | None:
     if not product_names:
@@ -128,7 +128,7 @@ def select_alternative_name(
         if language and text and language not in names_by_language:
             names_by_language[language] = text[:255]
 
-    for language in ALTERNATIVE_NAME_LANGUAGE_PRIORITY:
+    for language in ALIAS_NAME_LANGUAGE_PRIORITY:
         name = names_by_language.get(language)
         if name:
             return name
@@ -143,13 +143,22 @@ def load_products_to_enrich(
     where_clause = "barcode IS NOT NULL"
     if not overwrite:
         where_clause += (
-            " AND ((image_url IS NULL OR image_url = '') "
-            "OR (alternative_name IS NULL OR alternative_name = ''))"
+            " AND ((product.image_url IS NULL OR product.image_url = '') "
+            "OR NOT EXISTS ("
+            "SELECT 1 FROM productalias "
+            "WHERE productalias.product_id = product.id "
+            "AND productalias.source = 'openfoodfacts'))"
         )
 
     rows = sqlite_connection.execute(
         f"""
-        SELECT id, barcode, image_url, alternative_name
+        SELECT product.id, product.barcode, product.image_url,
+            EXISTS (
+                SELECT 1
+                FROM productalias
+                WHERE productalias.product_id = product.id
+                    AND productalias.source = 'openfoodfacts'
+            ) AS has_openfoodfacts_alias
         FROM product
         WHERE {where_clause}
         """
@@ -157,10 +166,11 @@ def load_products_to_enrich(
     return {
         str(barcode): {
             "id": str(product_id),
+            "barcode": str(barcode),
             "needs_image": overwrite or not image_url,
-            "needs_alternative_name": overwrite or not alternative_name,
+            "needs_alias": overwrite or not has_openfoodfacts_alias,
         }
-        for product_id, barcode, image_url, alternative_name in rows
+        for product_id, barcode, image_url, has_openfoodfacts_alias in rows
         if barcode
     }
 
@@ -200,10 +210,10 @@ def find_product_enrichments(
             if image_url:
                 product_enrichment["image_url"] = image_url
 
-        if product["needs_alternative_name"]:
-            alternative_name = select_alternative_name(product_names)
-            if alternative_name:
-                product_enrichment["alternative_name"] = alternative_name
+        if product["needs_alias"]:
+            alias_name = select_alias_name(product_names)
+            if alias_name:
+                product_enrichment["alias_name"] = alias_name
 
         if product_enrichment:
             enrichments[product["id"]] = product_enrichment
@@ -240,11 +250,9 @@ def main() -> None:
         products_by_barcode=products_by_barcode,
     )
     image_count = sum("image_url" in enrichment for enrichment in enrichments.values())
-    alternative_name_count = sum(
-        "alternative_name" in enrichment for enrichment in enrichments.values()
-    )
+    alias_name_count = sum("alias_name" in enrichment for enrichment in enrichments.values())
     print(f"Matching image URLs found: {image_count}")
-    print(f"Matching alternative names found: {alternative_name_count}")
+    print(f"Matching alias names found: {alias_name_count}")
 
     for product_id, enrichment in list(enrichments.items())[:10]:
         print(f"  {product_id}: {enrichment}")
@@ -258,18 +266,42 @@ def main() -> None:
         print(f"Backup created: {backup_path}")
 
     updated = 0
+    aliases_inserted = 0
     for product_id, enrichment in enrichments.items():
-        set_clause = ", ".join(f"{column} = ?" for column in enrichment)
-        values = [*enrichment.values(), product_id]
-        cursor = sqlite_connection.execute(
-            f"UPDATE product SET {set_clause} WHERE id = ?",
-            values,
-        )
-        updated += cursor.rowcount
+        if image_url := enrichment.get("image_url"):
+            cursor = sqlite_connection.execute(
+                "UPDATE product SET image_url = ? WHERE id = ?",
+                [image_url, product_id],
+            )
+            updated += cursor.rowcount
+
+        if alias_name := enrichment.get("alias_name"):
+            normalized_alias_name = " ".join(alias_name.strip().lower().split())
+            cursor = sqlite_connection.execute(
+                """
+                INSERT OR IGNORE INTO productalias (
+                    id,
+                    product_id,
+                    alias_name,
+                    normalized_alias_name,
+                    source,
+                    confidence,
+                    first_seen_at,
+                    last_seen_at
+                )
+                VALUES (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2)))
+                    || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2)))
+                    || '-' || lower(hex(randomblob(6))), ?, ?, ?, 'openfoodfacts',
+                    0.8000, datetime('now'), datetime('now'))
+                """,
+                [product_id, alias_name, normalized_alias_name],
+            )
+            aliases_inserted += cursor.rowcount
 
     sqlite_connection.commit()
     sqlite_connection.close()
-    print(f"Rows updated: {updated}")
+    print(f"Product rows updated: {updated}")
+    print(f"Aliases inserted: {aliases_inserted}")
 
 
 if __name__ == "__main__":

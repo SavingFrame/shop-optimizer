@@ -5,12 +5,12 @@ from typing import ClassVar
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import case, desc, or_
-from sqlalchemy.orm import aliased
 from sqlmodel import SQLModel, func, select
 
 from app.api.deps import SessionDep
 from app.models.price_observation import PriceObservation, PriceObservationPublic
 from app.models.product import Product, ProductPublic, ProductsPublic
+from app.models.product_alias import ProductAlias
 from app.models.retailer import Retailer, RetailerPublic
 from app.models.store import StorePublic
 
@@ -64,32 +64,57 @@ def read_products(
         return ProductsPublic(count=count, data=products)
 
     search_pattern = f"%{search}%"
-    search_filter = or_(
+    alias_search_filter = or_(
+        ProductAlias.retailer_product_code == search,
+        ProductAlias.alias_name.ilike(search_pattern),
+        ProductAlias.normalized_alias_name.ilike(search_pattern),
+        ProductAlias.alias_name.op("%")(search),
+        ProductAlias.normalized_alias_name.op("%")(search),
+    )
+    alias_similarity_score = func.greatest(
+        func.similarity(func.coalesce(ProductAlias.alias_name, ""), search),
+        func.word_similarity(search, func.coalesce(ProductAlias.alias_name, "")),
+        func.similarity(func.coalesce(ProductAlias.normalized_alias_name, ""), search),
+        func.word_similarity(
+            search,
+            func.coalesce(ProductAlias.normalized_alias_name, ""),
+        ),
+    )
+    alias_scores = (
+        select(
+            ProductAlias.product_id.label("product_id"),
+            func.max(alias_similarity_score).label("alias_score"),
+        )
+        .where(alias_search_filter)
+        .group_by(ProductAlias.product_id)
+        .cte("alias_scores")
+    )
+    product_search_filter = or_(
         Product.barcode == search,
         Product.name.ilike(search_pattern),
-        Product.alternative_name.ilike(search_pattern),
         Product.brand.ilike(search_pattern),
         Product.category.ilike(search_pattern),
+        Product.name.op("%")(search),
+        Product.brand.op("%")(search),
+        Product.category.op("%")(search),
+        alias_scores.c.product_id.is_not(None),
     )
     similarity_score = func.greatest(
         func.similarity(func.coalesce(Product.name, ""), search),
-        func.similarity(func.coalesce(Product.alternative_name, ""), search),
         func.similarity(func.coalesce(Product.brand, ""), search),
         func.similarity(func.coalesce(Product.category, ""), search),
+        func.coalesce(alias_scores.c.alias_score, 0),
     )
     has_image = (Product.image_url.is_not(None)) & (Product.image_url != "")
 
-    count_statement = select(func.count()).select_from(Product).where(search_filter)
+    count_statement = (
+        select(func.count())
+        .select_from(Product)
+        .outerjoin(alias_scores, alias_scores.c.product_id == Product.id)
+        .where(product_search_filter)
+    )
     count = session.exec(count_statement).one()
 
-    coverage_product = aliased(Product)
-    coverage_search_filter = or_(
-        coverage_product.barcode == search,
-        coverage_product.name.ilike(search_pattern),
-        coverage_product.alternative_name.ilike(search_pattern),
-        coverage_product.brand.ilike(search_pattern),
-        coverage_product.category.ilike(search_pattern),
-    )
     product_coverage = (
         select(
             PriceObservation.product_id.label("product_id"),
@@ -98,19 +123,16 @@ def read_products(
             ),
             func.count().label("observation_count"),
         )
-        .join(coverage_product, coverage_product.id == PriceObservation.product_id)
-        .where(
-            PriceObservation.observed_date == coverage_date,
-            coverage_search_filter,
-        )
+        .where(PriceObservation.observed_date == coverage_date)
         .group_by(PriceObservation.product_id)
         .cte("product_coverage")
     )
 
     statement = (
         select(Product)
+        .outerjoin(alias_scores, alias_scores.c.product_id == Product.id)
         .outerjoin(product_coverage, product_coverage.c.product_id == Product.id)
-        .where(search_filter)
+        .where(product_search_filter)
         .order_by(
             case((Product.barcode == search, 0), else_=1),
             desc(similarity_score),

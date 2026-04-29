@@ -92,7 +92,6 @@ TABLES: tuple[tuple[str, tuple[str, ...], tuple[Transform, ...]], ...] = (
         (
             "barcode",
             "name",
-            "alternative_name",
             "brand",
             "net_quantity",
             "unit_of_measure",
@@ -101,7 +100,6 @@ TABLES: tuple[tuple[str, tuple[str, ...], tuple[Transform, ...]], ...] = (
             "id",
         ),
         (
-            str_or_none,
             str_or_none,
             str_or_none,
             str_or_none,
@@ -173,7 +171,8 @@ def ensure_sqlite_tables(sqlite_connection: sqlite3.Connection) -> None:
 
 
 def truncate_postgres(postgres_connection: Connection) -> None:
-    table_list = ", ".join(quote_identifier(table) for table, _, _ in reversed(TABLES))
+    tables = ["productalias", *(table for table, _, _ in reversed(TABLES))]
+    table_list = ", ".join(quote_identifier(table) for table in tables)
     with postgres_connection.cursor() as cursor:
         cursor.execute(f"TRUNCATE {table_list} RESTART IDENTITY CASCADE")
 
@@ -220,6 +219,118 @@ def copy_table(
                     copy.write_row(row)
                 copied += len(rows)
     return copied
+
+
+def backfill_product_aliases(
+    sqlite_connection: sqlite3.Connection,
+    postgres_connection: Connection,
+) -> None:
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            """
+            CREATE TEMP TABLE legacy_product_alternative_name (
+                product_id uuid,
+                alias_name text
+            ) ON COMMIT DROP
+            """
+        )
+        rows = sqlite_connection.execute(
+            """
+            SELECT id, alternative_name
+            FROM product
+            WHERE alternative_name IS NOT NULL AND trim(alternative_name) <> ''
+            """
+        ).fetchall()
+        with cursor.copy(
+            "COPY legacy_product_alternative_name (product_id, alias_name) FROM STDIN"
+        ) as copy:
+            for row in rows:
+                copy.write_row(
+                    (
+                        uuid_from_sqlite(row["id"]),
+                        str_or_none(row["alternative_name"]),
+                    )
+                )
+        cursor.execute(
+            """
+            INSERT INTO productalias (
+                id,
+                product_id,
+                alias_name,
+                normalized_alias_name,
+                source,
+                confidence,
+                first_seen_at,
+                last_seen_at
+            )
+            SELECT
+                gen_random_uuid(),
+                product_id,
+                alias_name,
+                lower(regexp_replace(btrim(alias_name), '\\s+', ' ', 'g')),
+                'openfoodfacts',
+                0.8000,
+                now(),
+                now()
+            FROM legacy_product_alternative_name
+            ON CONFLICT DO NOTHING
+            """
+        )
+        cursor.execute(
+            """
+            WITH grouped_aliases AS (
+                SELECT
+                    priceobservation.product_id,
+                    priceobservation.retailer_id,
+                    priceobservation.source_product_name AS alias_name,
+                    lower(
+                        regexp_replace(
+                            btrim(priceobservation.source_product_name),
+                            '\\s+',
+                            ' ',
+                            'g'
+                        )
+                    ) AS normalized_alias_name,
+                    priceobservation.retailer_product_code,
+                    min(priceobservation.observed_date)::timestamp with time zone
+                        AS first_seen_at,
+                    max(priceobservation.observed_date)::timestamp with time zone
+                        AS last_seen_at
+                FROM priceobservation
+                WHERE btrim(priceobservation.source_product_name) <> ''
+                GROUP BY
+                    priceobservation.product_id,
+                    priceobservation.retailer_id,
+                    priceobservation.source_product_name,
+                    priceobservation.retailer_product_code
+            )
+            INSERT INTO productalias (
+                id,
+                product_id,
+                retailer_id,
+                alias_name,
+                normalized_alias_name,
+                retailer_product_code,
+                source,
+                confidence,
+                first_seen_at,
+                last_seen_at
+            )
+            SELECT
+                gen_random_uuid(),
+                product_id,
+                retailer_id,
+                alias_name,
+                normalized_alias_name,
+                retailer_product_code,
+                'price_csv',
+                0.9500,
+                first_seen_at,
+                last_seen_at
+            FROM grouped_aliases
+            ON CONFLICT DO NOTHING
+            """
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -278,6 +389,9 @@ def main() -> None:
                     args.batch_size,
                 )
                 logger.info("%s: copied %s rows", table, copied)
+
+            backfill_product_aliases(sqlite_connection, postgres_connection)
+            logger.info("productalias: backfilled aliases")
         except Exception:
             postgres_connection.rollback()
             raise

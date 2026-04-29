@@ -94,10 +94,6 @@ export type ProductPublic = {
      */
     name: string;
     /**
-     * Alternative product name fetched from Open Food Facts, preferring Croatian names.
-     */
-    alternative_name?: (string | null);
-    /**
      * Original CSV column: marka or MARKA PROIZVODA.
      */
     brand?: (string | null);

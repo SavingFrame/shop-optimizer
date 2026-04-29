@@ -1,7 +1,7 @@
 import datetime
 import uuid
 
-from celery import Celery
+from celery import Celery, chord
 from celery.schedules import crontab
 from sqlmodel import Session
 
@@ -28,11 +28,14 @@ def download_csv(date: datetime.date | str | None = None):
     today = parse_import_date(date)
     job = PriceCsvImportJob()
 
-    for retailer_id in job.supported_retailer_ids():
-        download_retailer_csv.delay(
+    retailer_tasks = [
+        download_retailer_csv.s(
             retailer_id=str(retailer_id),
             date=today.isoformat(),
         )
+        for retailer_id in job.supported_retailer_ids()
+    ]
+    chord(retailer_tasks)(reconcile_product_names.s())
 
 
 @celery.task
@@ -41,6 +44,11 @@ def download_retailer_csv(retailer_id: str, date: str):
         retailer_id=uuid.UUID(retailer_id),
         date=parse_import_date(date),
     )
+
+
+@celery.task
+def reconcile_product_names(_results=None):
+    return PriceCsvImportJob().reconcile_product_names()
 
 
 @celery.task

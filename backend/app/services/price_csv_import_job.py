@@ -3,25 +3,37 @@ import logging
 import uuid
 from collections.abc import Sequence
 
+from sqlalchemy import case, update
 from sqlmodel import Session, select
 
 from app.core.db import engine
+from app.models.product import Product
+from app.models.product_alias import ProductAlias, ProductAliasSource
 from app.models.retailer import ReailerEnum
 from app.models.store import Store
 from app.services.price_csv_importer import (
     BaseRetailerPriceCsvParser,
     KauflandPriceCsvParser,
+    LidlPriceCsvParser,
     PriceCsvImporter,
+    SparPriceCsvParser,
 )
 from app.services.price_downloader import (
     BasePriceDownloader,
     KauflandPriceDownloader,
+    LidlPriceDownloader,
+    SparPriceDownloader,
     StorePriceCsvNotFound,
 )
 
 logger = logging.getLogger(__name__)
 
 RetailerImport = tuple[uuid.UUID, BasePriceDownloader, BaseRetailerPriceCsvParser]
+PRIMARY_NAME_RETAILER_PRIORITY = {
+    ReailerEnum.KAUFLAND.value.id: 1,
+    ReailerEnum.SPAR.value.id: 2,
+    ReailerEnum.LIDL.value.id: 3,
+}
 
 
 def parse_import_date(date: datetime.date | str | None) -> datetime.date:
@@ -92,10 +104,70 @@ class PriceCsvImportJob:
                     date,
                 )
 
+    @staticmethod
+    def _clean_product_name(value: str) -> str:
+        cleaned = " ".join(value.strip().split())
+        for suffix in ("_OC", "_C"):
+            if cleaned.endswith(suffix):
+                cleaned = cleaned[: -len(suffix)].rstrip()
+        for suffix in (" PET", " LIM"):
+            if cleaned.endswith(suffix):
+                cleaned = cleaned[: -len(suffix)].rstrip()
+        return cleaned[:255]
+
+    def reconcile_product_names(self) -> int:
+        priority = case(
+            *[
+                (ProductAlias.retailer_id == retailer_id, priority_value)
+                for retailer_id, priority_value in PRIMARY_NAME_RETAILER_PRIORITY.items()
+            ],
+            else_=99,
+        )
+        alias_statement = (
+            select(
+                ProductAlias.product_id,
+                ProductAlias.alias_name,
+            )
+            .where(ProductAlias.source == ProductAliasSource.PRICE_CSV.value)
+            .order_by(
+                ProductAlias.product_id,
+                priority,
+                ProductAlias.last_seen_at.desc(),
+                ProductAlias.alias_name,
+            )
+        )
+
+        updated_count = 0
+        product_names: dict[uuid.UUID, str] = {}
+        with Session(engine) as session:
+            for product_id, alias_name in session.exec(alias_statement):
+                if product_id in product_names:
+                    continue
+
+                product_name = self._clean_product_name(alias_name)
+                if product_name:
+                    product_names[product_id] = product_name
+
+            for product_id, product_name in product_names.items():
+                result = session.exec(
+                    update(Product)
+                    .where(
+                        Product.id == product_id,
+                        Product.name != product_name,
+                    )
+                    .values(name=product_name),
+                )
+                updated_count += result.rowcount or 0
+
+            session.commit()
+
+        logger.info("Reconciled product display names: updated=%s", updated_count)
+        return updated_count
+
     def _retailer_imports(self) -> Sequence[RetailerImport]:
         return [
-            # (ReailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
-            # (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
+            (ReailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
+            (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
             (
                 ReailerEnum.KAUFLAND.value.id,
                 KauflandPriceDownloader(),

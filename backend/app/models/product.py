@@ -6,6 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.models.price_observation import PriceObservation
+    from app.models.product_alias import ProductAlias
 
 
 class ProductBase(SQLModel):
@@ -20,12 +21,6 @@ class ProductBase(SQLModel):
         index=True,
         max_length=255,
         description="Canonical or first seen product name. Original CSV column: naziv or NAZIV PROIZVODA.",
-    )
-    alternative_name: str | None = Field(
-        default=None,
-        index=True,
-        max_length=255,
-        description="Alternative product name fetched from Open Food Facts, preferring Croatian names.",
     )
     brand: str | None = Field(
         default=None,
@@ -62,6 +57,7 @@ class Product(ProductBase, table=True):
     price_observations: list["PriceObservation"] = Relationship(
         back_populates="product",
     )
+    aliases: list["ProductAlias"] = Relationship(back_populates="product")
 
 
 class ProductCreate(ProductBase):

@@ -6,6 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.models.price_observation import PriceObservation
+    from app.models.receipt import Receipt
     from app.models.retailer import Retailer
 
 
@@ -41,6 +42,7 @@ class Store(StoreBase, table=True):
 
     retailer: "Retailer" = Relationship(back_populates="stores")
     price_observations: list["PriceObservation"] = Relationship(back_populates="store")
+    receipts: list["Receipt"] = Relationship(back_populates="store")
 
 
 class StoreCreate(StoreBase):

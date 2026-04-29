@@ -7,6 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from app.models.price_observation import PriceObservation
     from app.models.product_alias import ProductAlias
+    from app.models.receipt import ReceiptItem
 
 
 class ProductBase(SQLModel):
@@ -58,6 +59,7 @@ class Product(ProductBase, table=True):
         back_populates="product",
     )
     aliases: list["ProductAlias"] = Relationship(back_populates="product")
+    receipt_items: list["ReceiptItem"] = Relationship(back_populates="product")
 
 
 class ProductCreate(ProductBase):

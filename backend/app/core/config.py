@@ -92,6 +92,7 @@ class Settings(BaseSettings):
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+    RECEIPT_UPLOAD_DIR: str = "uploads/receipts"
 
 
 settings = Settings()  # type: ignore

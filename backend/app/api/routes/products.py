@@ -16,7 +16,7 @@ from app.models.store import StorePublic
 
 router = APIRouter(prefix="/products", tags=["products"])
 
-@router.get("/", response_model=ProductsPublic)
+@router.get("", response_model=ProductsPublic)
 def read_products(
     session: SessionDep,
     skip: int = 0,

@@ -9,6 +9,12 @@ export type Body_login_login_access_token = {
     client_secret?: (string | null);
 };
 
+export type Body_receipts_create_receipt = {
+    retailer_id: string;
+    store_id?: (string | null);
+    file: (Blob | File);
+};
+
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
@@ -119,6 +125,119 @@ export type ProductPublic = {
 export type ProductsPublic = {
     data: Array<ProductPublic>;
     count: number;
+};
+
+export type Receipt = {
+    retailer_id: string;
+    store_id?: (string | null);
+    user_id?: (string | null);
+    /**
+     * Datetime when the purchase was made, as parsed from the receipt.
+     */
+    purchase_datetime?: (string | null);
+    /**
+     * Final receipt total in EUR.
+     */
+    total_eur?: (string | null);
+    /**
+     * Storage key or path for the uploaded receipt file.
+     */
+    file_key: string;
+    /**
+     * User review lifecycle status for the receipt.
+     */
+    status?: ReceiptStatus;
+    /**
+     * Text extracted from the uploaded receipt file.
+     */
+    raw_text?: (string | null);
+    created_at?: string;
+    updated_at?: string;
+    id?: string;
+};
+
+export type ReceiptItemReviewPublic = {
+    receipt_id: string;
+    product_id?: (string | null);
+    price_observation_id?: (string | null);
+    line_number: number;
+    /**
+     * Product name exactly as parsed from the receipt.
+     */
+    raw_name: string;
+    /**
+     * Normalized search form of raw_name.
+     */
+    normalized_raw_name: string;
+    /**
+     * Purchased quantity parsed from the receipt line.
+     */
+    quantity: string;
+    /**
+     * Unit parsed from the receipt line when present, for example kg.
+     */
+    unit_of_measure?: (string | null);
+    /**
+     * Unit price in EUR parsed from the receipt line.
+     */
+    unit_price_eur?: (string | null);
+    /**
+     * Final line total in EUR after any receipt-level line adjustments.
+     */
+    line_total_eur: string;
+    /**
+     * Whether the user intentionally ignored this receipt line.
+     */
+    is_skipped?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    id: string;
+    product?: (ProductPublic | null);
+};
+
+export type ReceiptItemUpdate = {
+    product_id?: (string | null);
+    is_skipped?: (boolean | null);
+};
+
+export type ReceiptPublic = {
+    retailer_id: string;
+    store_id?: (string | null);
+    user_id?: (string | null);
+    /**
+     * Datetime when the purchase was made, as parsed from the receipt.
+     */
+    purchase_datetime?: (string | null);
+    /**
+     * Final receipt total in EUR.
+     */
+    total_eur?: (string | null);
+    /**
+     * Storage key or path for the uploaded receipt file.
+     */
+    file_key: string;
+    /**
+     * User review lifecycle status for the receipt.
+     */
+    status?: ReceiptStatus;
+    /**
+     * Text extracted from the uploaded receipt file.
+     */
+    raw_text?: (string | null);
+    created_at?: string;
+    updated_at?: string;
+    id: string;
+};
+
+export type ReceiptsPublic = {
+    data: Array<ReceiptPublic>;
+    count: number;
+};
+
+export type ReceiptStatus = 'draft' | 'completed';
+
+export type ReceiptUpdate = {
+    status?: (ReceiptStatus | null);
 };
 
 export type RetailerDailyRetailPriceHistoryPoint = {
@@ -300,6 +419,40 @@ export type ProductsGroupedProductPriceObservationsData = {
 };
 
 export type ProductsGroupedProductPriceObservationsResponse = (Array<RetailerPriceObservationSummary>);
+
+export type ReceiptsCreateReceiptData = {
+    formData: Body_receipts_create_receipt;
+};
+
+export type ReceiptsCreateReceiptResponse = (Receipt);
+
+export type ReceiptsReadReceiptsData = {
+    limit?: number;
+    skip?: number;
+};
+
+export type ReceiptsReadReceiptsResponse = (ReceiptsPublic);
+
+export type ReceiptsReadReceiptData = {
+    receiptId: string;
+};
+
+export type ReceiptsReadReceiptResponse = (Receipt);
+
+export type ReceiptsUpdateReceiptData = {
+    receiptId: string;
+    requestBody: ReceiptUpdate;
+};
+
+export type ReceiptsUpdateReceiptResponse = (Receipt);
+
+export type ReceiptsUpdateReceiptItemData = {
+    itemId: string;
+    receiptId: string;
+    requestBody: ReceiptItemUpdate;
+};
+
+export type ReceiptsUpdateReceiptItemResponse = (ReceiptItemReviewPublic);
 
 export type UsersReadUsersData = {
     limit?: number;

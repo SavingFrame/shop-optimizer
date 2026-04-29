@@ -1,13 +1,25 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
-import { PackageSearch, ReceiptText, ShoppingBasket } from "lucide-react"
+import {
+  LogIn,
+  LogOut,
+  PackageSearch,
+  ReceiptText,
+  Settings,
+  ShoppingBasket,
+  UserPlus,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/_layout")({
   component: Layout,
 })
 
 function Layout() {
+  const { logout, user } = useAuth()
+  const loggedIn = isLoggedIn()
+
   return (
     <div className="min-h-screen overflow-hidden bg-background text-foreground">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_34rem),radial-gradient(circle_at_top_right,rgba(132,204,22,0.12),transparent_30rem)]" />
@@ -50,6 +62,40 @@ function Layout() {
                 Receipt upload
               </a>
             </Button>
+            {loggedIn ? (
+              <>
+                {user?.email && (
+                  <span className="hidden max-w-48 truncate text-sm text-muted-foreground lg:inline">
+                    {user.email}
+                  </span>
+                )}
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/settings">
+                    <Settings className="size-4" />
+                    Settings
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" onClick={logout}>
+                  <LogOut className="size-4" />
+                  Log out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/login">
+                    <LogIn className="size-4" />
+                    Log in
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/signup">
+                    <UserPlus className="size-4" />
+                    Sign up
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>

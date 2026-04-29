@@ -1,4 +1,4 @@
-import { Home, Users } from "lucide-react"
+import { Home } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
@@ -17,17 +17,13 @@ const baseItems: NavItem[] = [{ icon: Home, title: "Dashboard", path: "/" }]
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
-  const items = currentUser?.is_superuser
-    ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
-    : baseItems
-
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-4 py-6 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:items-center">
         <Logo variant="responsive" />
       </SidebarHeader>
       <SidebarContent>
-        <Main items={items} />
+        <Main items={baseItems} />
       </SidebarContent>
       <SidebarFooter>
         <SidebarAppearance />

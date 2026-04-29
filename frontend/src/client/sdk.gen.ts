@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class DashboardService {
     /**
@@ -93,7 +93,7 @@ export class LoginService {
     public static resetPassword(data: LoginResetPasswordData): CancelablePromise<LoginResetPasswordResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/reset-password/',
+            url: '/api/v1/reset-password',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -136,7 +136,7 @@ export class PrivateService {
     public static createUser(data: PrivateCreateUserData): CancelablePromise<PrivateCreateUserResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/private/users/',
+            url: '/api/v1/private/users',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -159,7 +159,7 @@ export class ProductsService {
     public static readProducts(data: ProductsReadProductsData = {}): CancelablePromise<ProductsReadProductsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/products/',
+            url: '/api/v1/products',
             query: {
                 skip: data.skip,
                 limit: data.limit,
@@ -252,6 +252,117 @@ export class ProductsService {
     }
 }
 
+export class ReceiptsService {
+    /**
+     * Create Receipt
+     * @param data The data for the request.
+     * @param data.formData
+     * @returns Receipt Successful Response
+     * @throws ApiError
+     */
+    public static createReceipt(data: ReceiptsCreateReceiptData): CancelablePromise<ReceiptsCreateReceiptResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/receipts',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Receipts
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @returns ReceiptsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readReceipts(data: ReceiptsReadReceiptsData = {}): CancelablePromise<ReceiptsReadReceiptsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/receipts',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Receipt
+     * @param data The data for the request.
+     * @param data.receiptId
+     * @returns Receipt Successful Response
+     * @throws ApiError
+     */
+    public static readReceipt(data: ReceiptsReadReceiptData): CancelablePromise<ReceiptsReadReceiptResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/receipts/{receipt_id}',
+            path: {
+                receipt_id: data.receiptId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Receipt
+     * @param data The data for the request.
+     * @param data.receiptId
+     * @param data.requestBody
+     * @returns Receipt Successful Response
+     * @throws ApiError
+     */
+    public static updateReceipt(data: ReceiptsUpdateReceiptData): CancelablePromise<ReceiptsUpdateReceiptResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/receipts/{receipt_id}',
+            path: {
+                receipt_id: data.receiptId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Receipt Item
+     * @param data The data for the request.
+     * @param data.receiptId
+     * @param data.itemId
+     * @param data.requestBody
+     * @returns ReceiptItemReviewPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateReceiptItem(data: ReceiptsUpdateReceiptItemData): CancelablePromise<ReceiptsUpdateReceiptItemResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/receipts/{receipt_id}/items/{item_id}',
+            path: {
+                receipt_id: data.receiptId,
+                item_id: data.itemId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class UsersService {
     /**
      * Read Users
@@ -265,7 +376,7 @@ export class UsersService {
     public static readUsers(data: UsersReadUsersData = {}): CancelablePromise<UsersReadUsersResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/users/',
+            url: '/api/v1/users',
             query: {
                 skip: data.skip,
                 limit: data.limit
@@ -287,7 +398,7 @@ export class UsersService {
     public static createUser(data: UsersCreateUserData): CancelablePromise<UsersCreateUserResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/users/',
+            url: '/api/v1/users',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -461,7 +572,7 @@ export class UtilsService {
     public static testEmail(data: UtilsTestEmailData): CancelablePromise<UtilsTestEmailResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/utils/test-email/',
+            url: '/api/v1/utils/test-email',
             query: {
                 email_to: data.emailTo
             },
@@ -479,7 +590,7 @@ export class UtilsService {
     public static healthCheck(): CancelablePromise<UtilsHealthCheckResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/utils/health-check/'
+            url: '/api/v1/utils/health-check'
         });
     }
 }

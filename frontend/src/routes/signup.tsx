@@ -8,6 +8,13 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { AuthLayout } from "@/components/Common/AuthLayout"
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
   Form,
   FormControl,
   FormField,
@@ -51,7 +58,7 @@ export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
       {
-        title: "Sign Up - FastAPI Cloud",
+        title: "Sign Up - Shop Optimizer",
       },
     ],
   }),
@@ -81,107 +88,122 @@ function SignUp() {
 
   return (
     <AuthLayout>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
-        >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Create an account</h1>
+      <Card className="border-primary/20 bg-card/80 shadow-2xl shadow-primary/5 backdrop-blur">
+        <CardHeader className="space-y-3 text-center">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+            <span className="text-xl font-semibold">SO</span>
           </div>
-
-          <div className="grid gap-4">
-            <FormField
-              control={form.control}
-              name="full_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      data-testid="full-name-input"
-                      placeholder="User"
-                      type="text"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      data-testid="email-input"
-                      placeholder="user@example.com"
-                      type="email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      data-testid="password-input"
-                      placeholder="Password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="confirm_password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      data-testid="confirm-password-input"
-                      placeholder="Confirm Password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <LoadingButton
-              type="submit"
-              className="w-full"
-              loading={signUpMutation.isPending}
+          <div className="space-y-2">
+            <CardTitle className="text-2xl">Create your account</CardTitle>
+            <CardDescription>
+              Join Shop Optimizer to save preferences and use account features
+              across sessions.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="flex flex-col gap-6"
             >
-              Sign Up
-            </LoadingButton>
-          </div>
+              <div className="grid gap-4">
+                <FormField
+                  control={form.control}
+                  name="full_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          data-testid="full-name-input"
+                          placeholder="User"
+                          type="text"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          <div className="text-center text-sm">
-            Already have an account?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
-              Log in
-            </RouterLink>
-          </div>
-        </form>
-      </Form>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          data-testid="email-input"
+                          placeholder="user@example.com"
+                          type="email"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <PasswordInput
+                          data-testid="password-input"
+                          placeholder="Password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="confirm_password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <PasswordInput
+                          data-testid="confirm-password-input"
+                          placeholder="Confirm Password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <LoadingButton
+                  type="submit"
+                  className="h-10 w-full"
+                  loading={signUpMutation.isPending}
+                >
+                  Sign up
+                </LoadingButton>
+              </div>
+
+              <div className="rounded-2xl border bg-background/60 p-4 text-center text-sm text-muted-foreground">
+                Already have an account?{" "}
+                <RouterLink
+                  to="/login"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  Log in
+                </RouterLink>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
     </AuthLayout>
   )
 }

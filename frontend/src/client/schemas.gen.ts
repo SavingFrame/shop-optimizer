@@ -57,6 +57,36 @@ export const Body_login_login_access_tokenSchema = {
     title: 'Body_login-login_access_token'
 } as const;
 
+export const Body_receipts_create_receiptSchema = {
+    properties: {
+        retailer_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Retailer Id'
+        },
+        store_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Store Id'
+        },
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['retailer_id', 'file'],
+    title: 'Body_receipts-create_receipt'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -420,6 +450,402 @@ export const ProductsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ProductsPublic'
+} as const;
+
+export const ReceiptSchema = {
+    properties: {
+        retailer_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Retailer Id'
+        },
+        store_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Store Id'
+        },
+        user_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Id'
+        },
+        purchase_datetime: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Purchase Datetime',
+            description: 'Datetime when the purchase was made, as parsed from the receipt.'
+        },
+        total_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Total Eur',
+            description: 'Final receipt total in EUR.'
+        },
+        file_key: {
+            type: 'string',
+            maxLength: 512,
+            title: 'File Key',
+            description: 'Storage key or path for the uploaded receipt file.'
+        },
+        status: {
+            '$ref': '#/components/schemas/ReceiptStatus',
+            description: 'User review lifecycle status for the receipt.',
+            default: 'draft'
+        },
+        raw_text: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Raw Text',
+            description: 'Text extracted from the uploaded receipt file.'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        }
+    },
+    type: 'object',
+    required: ['retailer_id', 'file_key'],
+    title: 'Receipt'
+} as const;
+
+export const ReceiptItemReviewPublicSchema = {
+    properties: {
+        receipt_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Receipt Id'
+        },
+        product_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Product Id'
+        },
+        price_observation_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Price Observation Id'
+        },
+        line_number: {
+            type: 'integer',
+            title: 'Line Number'
+        },
+        raw_name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Raw Name',
+            description: 'Product name exactly as parsed from the receipt.'
+        },
+        normalized_raw_name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Normalized Raw Name',
+            description: 'Normalized search form of raw_name.'
+        },
+        quantity: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Quantity',
+            description: 'Purchased quantity parsed from the receipt line.'
+        },
+        unit_of_measure: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 64
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Unit Of Measure',
+            description: 'Unit parsed from the receipt line when present, for example kg.'
+        },
+        unit_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Unit Price Eur',
+            description: 'Unit price in EUR parsed from the receipt line.'
+        },
+        line_total_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Line Total Eur',
+            description: 'Final line total in EUR after any receipt-level line adjustments.'
+        },
+        is_skipped: {
+            type: 'boolean',
+            title: 'Is Skipped',
+            description: 'Whether the user intentionally ignored this receipt line.',
+            default: false
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        product: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ProductPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['receipt_id', 'line_number', 'raw_name', 'normalized_raw_name', 'quantity', 'line_total_eur', 'id'],
+    title: 'ReceiptItemReviewPublic'
+} as const;
+
+export const ReceiptItemUpdateSchema = {
+    properties: {
+        product_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Product Id'
+        },
+        is_skipped: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Skipped'
+        }
+    },
+    type: 'object',
+    title: 'ReceiptItemUpdate'
+} as const;
+
+export const ReceiptPublicSchema = {
+    properties: {
+        retailer_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Retailer Id'
+        },
+        store_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Store Id'
+        },
+        user_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Id'
+        },
+        purchase_datetime: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Purchase Datetime',
+            description: 'Datetime when the purchase was made, as parsed from the receipt.'
+        },
+        total_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Total Eur',
+            description: 'Final receipt total in EUR.'
+        },
+        file_key: {
+            type: 'string',
+            maxLength: 512,
+            title: 'File Key',
+            description: 'Storage key or path for the uploaded receipt file.'
+        },
+        status: {
+            '$ref': '#/components/schemas/ReceiptStatus',
+            description: 'User review lifecycle status for the receipt.',
+            default: 'draft'
+        },
+        raw_text: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Raw Text',
+            description: 'Text extracted from the uploaded receipt file.'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        }
+    },
+    type: 'object',
+    required: ['retailer_id', 'file_key', 'id'],
+    title: 'ReceiptPublic'
+} as const;
+
+export const ReceiptStatusSchema = {
+    type: 'string',
+    enum: ['draft', 'completed'],
+    title: 'ReceiptStatus'
+} as const;
+
+export const ReceiptUpdateSchema = {
+    properties: {
+        status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ReceiptStatus'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    title: 'ReceiptUpdate'
+} as const;
+
+export const ReceiptsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ReceiptPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ReceiptsPublic'
 } as const;
 
 export const RetailerDailyRetailPriceHistoryPointSchema = {

@@ -6,12 +6,12 @@ import {
   BadgeEuro,
   Clock3,
   ImageIcon,
+  type LucideIcon,
   PackageOpen,
   ReceiptText,
   Search,
   Sparkles,
   Store,
-  type LucideIcon,
 } from "lucide-react"
 
 import { DashboardService, type PriceMover } from "@/client"
@@ -24,12 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const PRICE_MOVER_LIMIT = 8
 
@@ -52,7 +47,8 @@ export const Route = createFileRoute("/_layout/")({
 function Dashboard() {
   const priceMoversQuery = useQuery({
     queryKey: ["dashboard", "price-movers", PRICE_MOVER_LIMIT],
-    queryFn: () => DashboardService.readPriceMovers({ limit: PRICE_MOVER_LIMIT }),
+    queryFn: () =>
+      DashboardService.readPriceMovers({ limit: PRICE_MOVER_LIMIT }),
   })
   const priceMovers = priceMoversQuery.data
   const dateRange = formatDateRange(
@@ -146,7 +142,10 @@ function Dashboard() {
         </Card>
       </section>
 
-      <section id="price-movers" className="grid gap-6 lg:grid-cols-[1fr_0.7fr]">
+      <section
+        id="price-movers"
+        className="grid gap-6 lg:grid-cols-[1fr_0.7fr]"
+      >
         <Card className="bg-card/80">
           <CardHeader>
             <CardTitle>Biggest price moves</CardTitle>
@@ -383,7 +382,10 @@ function PriceMoverRow({ mover, trend }: PriceMoverRowProps) {
       params={{ productId: mover.product.id }}
       to="/products/$productId"
     >
-      <ProductThumb imageUrl={mover.product.image_url} name={mover.product.name} />
+      <ProductThumb
+        imageUrl={mover.product.image_url}
+        name={mover.product.name}
+      />
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="line-clamp-1 font-medium">{mover.product.name}</p>
@@ -393,7 +395,7 @@ function PriceMoverRow({ mover, trend }: PriceMoverRowProps) {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          {formatCurrency(mover.previous_price_eur)} to {" "}
+          {formatCurrency(mover.previous_price_eur)} to{" "}
           {formatCurrency(mover.current_price_eur)}
         </p>
       </div>
@@ -486,7 +488,10 @@ function formatCount(value?: number) {
   return new Intl.NumberFormat("hr-HR").format(value)
 }
 
-function formatDateRange(previousDate?: string | null, currentDate?: string | null) {
+function formatDateRange(
+  previousDate?: string | null,
+  currentDate?: string | null,
+) {
   if (!previousDate || !currentDate) {
     return undefined
   }

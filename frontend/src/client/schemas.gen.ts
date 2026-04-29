@@ -191,6 +191,96 @@ export const NewPasswordSchema = {
     title: 'NewPassword'
 } as const;
 
+export const PriceMoverSchema = {
+    properties: {
+        product: {
+            '$ref': '#/components/schemas/ProductPublic'
+        },
+        retailer: {
+            '$ref': '#/components/schemas/RetailerPublic'
+        },
+        current_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Current Date'
+        },
+        previous_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Previous Date'
+        },
+        previous_price_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Previous Price Eur'
+        },
+        current_price_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Current Price Eur'
+        },
+        absolute_change_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Absolute Change Eur'
+        },
+        percent_change: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Percent Change'
+        }
+    },
+    type: 'object',
+    required: ['product', 'retailer', 'current_date', 'previous_date', 'previous_price_eur', 'current_price_eur', 'absolute_change_eur', 'percent_change'],
+    title: 'PriceMover'
+} as const;
+
+export const PriceMoversPublicSchema = {
+    properties: {
+        current_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Current Date'
+        },
+        previous_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Previous Date'
+        },
+        price_drops: {
+            items: {
+                '$ref': '#/components/schemas/PriceMover'
+            },
+            type: 'array',
+            title: 'Price Drops'
+        },
+        price_increases: {
+            items: {
+                '$ref': '#/components/schemas/PriceMover'
+            },
+            type: 'array',
+            title: 'Price Increases'
+        }
+    },
+    type: 'object',
+    required: ['current_date', 'previous_date', 'price_drops', 'price_increases'],
+    title: 'PriceMoversPublic'
+} as const;
+
 export const PrivateUserCreateSchema = {
     properties: {
         email: {
@@ -280,7 +370,7 @@ export const ProductPublicSchema = {
             anyOf: [
                 {
                     type: 'string',
-                    maxLength: 16
+                    maxLength: 64
                 },
                 {
                     type: 'null'

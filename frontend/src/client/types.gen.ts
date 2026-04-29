@@ -59,6 +59,24 @@ export type NewPassword = {
     new_password: string;
 };
 
+export type PriceMover = {
+    product: ProductPublic;
+    retailer: RetailerPublic;
+    current_date: string;
+    previous_date: string;
+    previous_price_eur: string;
+    current_price_eur: string;
+    absolute_change_eur: string;
+    percent_change: string;
+};
+
+export type PriceMoversPublic = {
+    current_date: (string | null);
+    previous_date: (string | null);
+    price_drops: Array<PriceMover>;
+    price_increases: Array<PriceMover>;
+};
+
 export type PrivateUserCreate = {
     email: string;
     password: string;
@@ -216,6 +234,12 @@ export type ValidationError = {
     msg: string;
     type: string;
 };
+
+export type DashboardReadPriceMoversData = {
+    limit?: number;
+};
+
+export type DashboardReadPriceMoversResponse = (PriceMoversPublic);
 
 export type LoginLoginAccessTokenData = {
     formData: Body_login_login_access_token;

@@ -1,17 +1,20 @@
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
   ArrowDownRight,
   ArrowUpRight,
   BadgeEuro,
   Clock3,
+  ImageIcon,
   PackageOpen,
   ReceiptText,
   Search,
-  ShoppingCart,
   Sparkles,
   Store,
+  type LucideIcon,
 } from "lucide-react"
 
+import { DashboardService, type PriceMover } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,54 +24,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 
-const basketItems = [
-  { name: "Milk 2.8%", quantity: "2 L", bestShop: "Konzum", price: "2.58 €" },
-  { name: "Eggs M", quantity: "10 pcs", bestShop: "Lidl", price: "2.39 €" },
-  { name: "Rice", quantity: "1 kg", bestShop: "Kaufland", price: "1.79 €" },
-  { name: "Coffee", quantity: "250 g", bestShop: "Lidl", price: "3.49 €" },
-]
-
-const shopTotals = [
-  { shop: "Lidl", total: "18.24 €", status: "Cheapest", delta: "Save 2.16 €" },
-  {
-    shop: "Kaufland",
-    total: "19.10 €",
-    status: "Good match",
-    delta: "Save 1.30 €",
-  },
-  { shop: "Konzum", total: "20.40 €", status: "Complete", delta: "Baseline" },
-]
-
-const productResults = [
-  {
-    name: "Milk 2.8%",
-    category: "Dairy",
-    unit: "1 L",
-    bestPrice: "1.29 €",
-    shop: "Konzum",
-    change: "-8%",
-    trend: "down",
-  },
-  {
-    name: "Coffee ground",
-    category: "Pantry",
-    unit: "250 g",
-    bestPrice: "3.49 €",
-    shop: "Lidl",
-    change: "+12%",
-    trend: "up",
-  },
-  {
-    name: "Eggs M",
-    category: "Fresh food",
-    unit: "10 pcs",
-    bestPrice: "2.39 €",
-    shop: "Lidl",
-    change: "-4%",
-    trend: "down",
-  },
-]
+const PRICE_MOVER_LIMIT = 8
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
@@ -87,6 +50,18 @@ export const Route = createFileRoute("/_layout/")({
 })
 
 function Dashboard() {
+  const priceMoversQuery = useQuery({
+    queryKey: ["dashboard", "price-movers", PRICE_MOVER_LIMIT],
+    queryFn: () => DashboardService.readPriceMovers({ limit: PRICE_MOVER_LIMIT }),
+  })
+  const priceMovers = priceMoversQuery.data
+  const dateRange = formatDateRange(
+    priceMovers?.previous_date,
+    priceMovers?.current_date,
+  )
+  const biggestDrop = priceMovers?.price_drops[0]
+  const biggestIncrease = priceMovers?.price_increases[0]
+
   return (
     <div className="space-y-8 pb-12">
       <section className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr] lg:items-stretch">
@@ -95,29 +70,29 @@ function Dashboard() {
           <CardHeader className="relative gap-5 p-6 sm:p-8">
             <Badge variant="secondary" className="w-fit gap-2 px-3 py-1">
               <Sparkles className="size-3.5 text-primary" />
-              Dashboard preview
+              Live price radar
             </Badge>
             <div className="max-w-2xl space-y-4">
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
-                Find any product and compare prices before you shop.
+                Find what got cheaper before you shop.
               </h1>
               <p className="text-base leading-7 text-muted-foreground sm:text-lg">
-                Search normalized grocery products, open product details, and
-                see the best current price across Croatian shops.
+                Track grocery price changes across Croatian retailers, browse
+                normalized products, and open details with shop price history.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button size="lg" asChild>
+                <a href="#price-movers">
+                  <ArrowDownRight className="size-4" />
+                  See price drops
+                </a>
+              </Button>
+              <Button variant="outline" size="lg" asChild>
                 <Link to="/products">
                   <Search className="size-4" />
                   Browse products
                 </Link>
-              </Button>
-              <Button variant="outline" size="lg" asChild>
-                <a href="#basket">
-                  <ShoppingCart className="size-4" />
-                  Compare basket
-                </a>
               </Button>
             </div>
           </CardHeader>
@@ -144,92 +119,89 @@ function Dashboard() {
             <div className="grid gap-3 sm:grid-cols-2">
               <MetricCard
                 icon={PackageOpen}
-                label="Product catalog"
-                value="Core"
+                label="Price drops"
+                value={formatCount(priceMovers?.price_drops.length)}
               />
-              <MetricCard icon={Store} label="Shop prices" value="Compared" />
+              <MetricCard
+                icon={ArrowUpRight}
+                label="Price increases"
+                value={formatCount(priceMovers?.price_increases.length)}
+              />
               <MetricCard
                 icon={BadgeEuro}
-                label="Best product price"
-                value="1.29 €/L"
+                label="Biggest drop"
+                value={
+                  biggestDrop
+                    ? formatSignedPercent(biggestDrop.percent_change)
+                    : "Loading"
+                }
               />
-              <MetricCard icon={Clock3} label="Updated" value="Today" />
+              <MetricCard
+                icon={Clock3}
+                label="Compared days"
+                value={dateRange ?? "Loading"}
+              />
             </div>
           </CardContent>
         </Card>
       </section>
 
-      <section id="basket" className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <section id="price-movers" className="grid gap-6 lg:grid-cols-[1fr_0.7fr]">
         <Card className="bg-card/80">
           <CardHeader>
-            <CardTitle>Basket builder</CardTitle>
+            <CardTitle>Biggest price moves</CardTitle>
             <CardDescription>
-              A first version of the core workflow, using sample products until
-              the API is ready.
+              Products with the largest average retailer price changes between
+              the latest two complete import days.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {basketItems.map((item) => (
-              <div
-                className="flex items-center justify-between gap-4 rounded-2xl border bg-background/60 p-4"
-                key={item.name}
-              >
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {item.quantity}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold">{item.price}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {item.bestShop}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <CardContent>
+            <PriceMoversTabs
+              isError={priceMoversQuery.isError}
+              isPending={priceMoversQuery.isPending}
+              priceDrops={priceMovers?.price_drops ?? []}
+              priceIncreases={priceMovers?.price_increases ?? []}
+            />
           </CardContent>
         </Card>
 
-        <Card id="shops" className="bg-card/80">
+        <Card className="bg-card/80">
           <CardHeader>
-            <CardTitle>Cheapest shop comparison</CardTitle>
+            <CardTitle>What changed?</CardTitle>
             <CardDescription>
-              Compare the full basket total across shops and expose expected
-              savings.
+              A quick read on the latest complete data refresh.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {shopTotals.map((shop, index) => (
-              <div
-                className="rounded-2xl border bg-background/60 p-4"
-                key={shop.shop}
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="font-medium">{shop.shop}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {shop.status}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-semibold">{shop.total}</p>
-                    <p className="text-sm text-primary">{shop.delta}</p>
-                  </div>
-                </div>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-secondary">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${92 - index * 14}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+          <CardContent className="space-y-3">
+            <InfoTile
+              icon={Clock3}
+              label="Compared period"
+              value={dateRange ?? "Not available"}
+            />
+            <InfoTile
+              icon={ArrowDownRight}
+              label="Best deal spotted"
+              value={
+                biggestDrop
+                  ? `${biggestDrop.retailer.name}, ${formatSignedCurrency(biggestDrop.absolute_change_eur)}`
+                  : "Not available"
+              }
+            />
+            <InfoTile
+              icon={ArrowUpRight}
+              label="Biggest increase"
+              value={
+                biggestIncrease
+                  ? `${biggestIncrease.retailer.name}, ${formatSignedCurrency(biggestIncrease.absolute_change_eur)}`
+                  : "Not available"
+              }
+            />
+            <Button className="w-full" variant="outline" asChild>
+              <Link to="/products">
+                <Search className="size-4" />
+                Search all products
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </section>
@@ -237,59 +209,28 @@ function Dashboard() {
       <section className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Product detail preview</CardTitle>
+            <CardTitle>How this works</CardTitle>
             <CardDescription>
-              Each result should lead to a product page with unit price, shop
-              availability, and recent changes.
+              We compare the same retailer product on the latest two complete
+              import days, using average price across that retailer's stores.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {productResults.map((product) => {
-              const isDown = product.trend === "down"
-              const Icon = isDown ? ArrowDownRight : ArrowUpRight
-
-              return (
-                <div
-                  className="grid gap-4 rounded-2xl border bg-background/60 p-4 sm:grid-cols-[1fr_auto] sm:items-center"
-                  key={product.name}
-                >
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{product.name}</p>
-                      <Badge variant="secondary">{product.category}</Badge>
-                      <Badge variant="outline">{product.unit}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Best at {product.shop}. Open details to compare all shops
-                      and view price history.
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between gap-5 sm:justify-end">
-                    <div className="text-right">
-                      <p className="text-xl font-semibold">
-                        {product.bestPrice}
-                      </p>
-                      <p
-                        className={
-                          isDown
-                            ? "text-sm text-primary"
-                            : "text-sm text-destructive"
-                        }
-                      >
-                        {product.change} recently
-                      </p>
-                    </div>
-                    <Icon
-                      className={
-                        isDown
-                          ? "size-5 text-primary"
-                          : "size-5 text-destructive"
-                      }
-                    />
-                  </div>
-                </div>
-              )
-            })}
+          <CardContent className="grid gap-3 sm:grid-cols-3">
+            <InfoTile
+              icon={Store}
+              label="Fair retailer scope"
+              value="Same retailer and product"
+            />
+            <InfoTile
+              icon={BadgeEuro}
+              label="Price metric"
+              value="Average store price"
+            />
+            <InfoTile
+              icon={Clock3}
+              label="Freshness rule"
+              value="Latest complete days"
+            />
           </CardContent>
         </Card>
 
@@ -319,8 +260,194 @@ function Dashboard() {
   )
 }
 
+type PriceMoversTabsProps = {
+  isError: boolean
+  isPending: boolean
+  priceDrops: Array<PriceMover>
+  priceIncreases: Array<PriceMover>
+}
+
+function PriceMoversTabs({
+  isError,
+  isPending,
+  priceDrops,
+  priceIncreases,
+}: PriceMoversTabsProps) {
+  return (
+    <Tabs defaultValue="drops" className="gap-4">
+      <TabsList>
+        <TabsTrigger value="drops">
+          <ArrowDownRight className="size-4" />
+          Drops
+        </TabsTrigger>
+        <TabsTrigger value="increases">
+          <ArrowUpRight className="size-4" />
+          Increases
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="drops">
+        <PriceMoverList
+          emptyMessage="No price drops found for the compared days."
+          isError={isError}
+          isPending={isPending}
+          movers={priceDrops}
+          trend="down"
+        />
+      </TabsContent>
+      <TabsContent value="increases">
+        <PriceMoverList
+          emptyMessage="No price increases found for the compared days."
+          isError={isError}
+          isPending={isPending}
+          movers={priceIncreases}
+          trend="up"
+        />
+      </TabsContent>
+    </Tabs>
+  )
+}
+
+type PriceMoverListProps = {
+  emptyMessage: string
+  isError: boolean
+  isPending: boolean
+  movers: Array<PriceMover>
+  trend: "down" | "up"
+}
+
+function PriceMoverList({
+  emptyMessage,
+  isError,
+  isPending,
+  movers,
+  trend,
+}: PriceMoverListProps) {
+  if (isPending) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            className="h-24 animate-pulse rounded-2xl border bg-background/60"
+            key={index}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
+        Could not load price movers. Check that the backend is running.
+      </div>
+    )
+  }
+
+  if (movers.length === 0) {
+    return (
+      <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-2xl border bg-background/60 p-6 text-center">
+        <BadgeEuro className="size-10 text-muted-foreground" />
+        <div>
+          <p className="font-medium">No price movers</p>
+          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {movers.map((mover) => (
+        <PriceMoverRow
+          key={`${mover.retailer.id}-${mover.product.id}-${mover.current_date}`}
+          mover={mover}
+          trend={trend}
+        />
+      ))}
+    </div>
+  )
+}
+
+type PriceMoverRowProps = {
+  mover: PriceMover
+  trend: "down" | "up"
+}
+
+function PriceMoverRow({ mover, trend }: PriceMoverRowProps) {
+  const isDrop = trend === "down"
+  const Icon = isDrop ? ArrowDownRight : ArrowUpRight
+
+  return (
+    <Link
+      className="grid gap-4 rounded-2xl border bg-background/60 p-4 transition hover:border-primary/40 hover:bg-background sm:grid-cols-[auto_1fr_auto] sm:items-center"
+      params={{ productId: mover.product.id }}
+      to="/products/$productId"
+    >
+      <ProductThumb imageUrl={mover.product.image_url} name={mover.product.name} />
+      <div className="min-w-0 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="line-clamp-1 font-medium">{mover.product.name}</p>
+          <Badge variant="secondary">{mover.retailer.name}</Badge>
+          {mover.product.category && (
+            <Badge variant="outline">{mover.product.category}</Badge>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {formatCurrency(mover.previous_price_eur)} to {" "}
+          {formatCurrency(mover.current_price_eur)}
+        </p>
+      </div>
+      <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <div className="text-left sm:text-right">
+          <p
+            className={
+              isDrop
+                ? "text-xl font-semibold text-primary"
+                : "text-xl font-semibold text-destructive"
+            }
+          >
+            {formatSignedPercent(mover.percent_change)}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {formatSignedCurrency(mover.absolute_change_eur)}
+          </p>
+        </div>
+        <Icon
+          className={isDrop ? "size-5 text-primary" : "size-5 text-destructive"}
+        />
+      </div>
+    </Link>
+  )
+}
+
+type ProductThumbProps = {
+  imageUrl?: string | null
+  name: string
+}
+
+function ProductThumb({ imageUrl, name }: ProductThumbProps) {
+  if (imageUrl) {
+    return (
+      <div className="flex size-16 items-center justify-center overflow-hidden rounded-2xl border bg-muted/40">
+        <img
+          alt={name}
+          className="h-full w-full object-contain p-2"
+          loading="lazy"
+          src={imageUrl}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex size-16 items-center justify-center rounded-2xl border bg-muted/40 text-muted-foreground">
+      <ImageIcon className="size-6" />
+    </div>
+  )
+}
+
 type MetricCardProps = {
-  icon: typeof Store
+  icon: LucideIcon
   label: string
   value: string
 }
@@ -333,4 +460,64 @@ function MetricCard({ icon: Icon, label, value }: MetricCardProps) {
       <p className="mt-1 text-xl font-semibold">{value}</p>
     </div>
   )
+}
+
+type InfoTileProps = {
+  icon: LucideIcon
+  label: string
+  value: string
+}
+
+function InfoTile({ icon: Icon, label, value }: InfoTileProps) {
+  return (
+    <div className="rounded-2xl border bg-background/60 p-4">
+      <Icon className="mb-3 size-5 text-primary" />
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-1 font-semibold">{value}</p>
+    </div>
+  )
+}
+
+function formatCount(value?: number) {
+  if (value === undefined) {
+    return "Loading"
+  }
+
+  return new Intl.NumberFormat("hr-HR").format(value)
+}
+
+function formatDateRange(previousDate?: string | null, currentDate?: string | null) {
+  if (!previousDate || !currentDate) {
+    return undefined
+  }
+
+  return `${formatShortDate(previousDate)} to ${formatShortDate(currentDate)}`
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("hr-HR", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(value))
+}
+
+function formatCurrency(value: string) {
+  return new Intl.NumberFormat("hr-HR", {
+    currency: "EUR",
+    style: "currency",
+  }).format(Number(value))
+}
+
+function formatSignedCurrency(value: string) {
+  const numericValue = Number(value)
+  const sign = numericValue > 0 ? "+" : ""
+
+  return `${sign}${formatCurrency(value)}`
+}
+
+function formatSignedPercent(value: string) {
+  const numericValue = Number(value)
+  const sign = numericValue > 0 ? "+" : ""
+
+  return `${sign}${numericValue.toFixed(1)}%`
 }

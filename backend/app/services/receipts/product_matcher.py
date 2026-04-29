@@ -37,8 +37,9 @@ class ReceiptProductMatcher:
     # because a saved alias is already treated as trusted product knowledge.
     accept_score = 0.85
 
-    # Low threshold used only to keep the candidate set from exploding. The final
-    # acceptance threshold is applied after all scoring signals are included.
+    # pg_trgm `%` uses the session's `pg_trgm.similarity_threshold`. We set it to
+    # this value before each match query so Postgres can use the trigram index as an
+    # early prefilter. The final acceptance threshold is applied after full scoring.
     candidate_score_threshold = Decimal("0.18")
     candidate_limit = 30
 
@@ -80,6 +81,7 @@ class ReceiptProductMatcher:
         for manual review should use a separate method later, because review UI needs
         lower-confidence candidates and explanation fields.
         """
+        self._set_similarity_threshold(session)
         row = session.exec(
             self._build_product_match_statement().params(
                 raw_query=parsed_item.normalized_raw_name,
@@ -136,6 +138,24 @@ class ReceiptProductMatcher:
             result = result.replace(source, target)
         return " ".join(result.lower().split())
 
+    def _set_similarity_threshold(self, session: Session) -> None:
+        """Set pg_trgm's `%` threshold for this transaction.
+
+        PostgreSQL's `%` operator does not accept a threshold argument directly. It
+        reads the value from `pg_trgm.similarity_threshold`, so the matcher sets it
+        before running the query. The `true` flag makes the setting local to the
+        current transaction.
+        """
+        session.exec(
+            sa_select(
+                func.set_config(
+                    "pg_trgm.similarity_threshold",
+                    str(self.candidate_score_threshold),
+                    True,
+                ),
+            ),
+        )
+
     def _build_product_match_statement(self):
         """Build the complete product matching query.
 
@@ -178,7 +198,9 @@ class ReceiptProductMatcher:
             ),
         )
 
-        # First stage: find plausible alias/product-name matches for this retailer.
+        # First stage: find plausible alias matches for this retailer. The `%`
+        # operator is pg_trgm's index-backed similarity operator. This is much cheaper
+        # than calculating `similarity()` and `word_similarity()` for every alias row.
         # A product can have many aliases, so this CTE may still contain multiple rows
         # for the same product.
         alias_candidates = (
@@ -197,7 +219,10 @@ class ReceiptProductMatcher:
                     ProductAlias.retailer_id == retailer_id,
                     ProductAlias.retailer_id.is_(None),
                 ),
-                rank_score >= self.candidate_score_threshold,
+                or_(
+                    ProductAlias.normalized_alias_name.op("%")(raw_query),
+                    ProductAlias.normalized_alias_name.op("%")(match_query),
+                ),
             )
             .cte("alias_candidates")
         )

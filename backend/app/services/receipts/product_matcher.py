@@ -18,8 +18,9 @@ class ReceiptProductMatcher:
 
     Receipt lines are usually short, abbreviated, and retailer-specific. For example,
     SPAR can print `TJ.BARILLA PIPE RI.500 g` while the catalog product is named
-    `Barilla pipe rigate n.91 500 g`. This matcher compares the raw receipt name and
-    an expanded receipt-specific match name against product aliases and product names.
+    `Barilla pipe rigate n.91 500 g`. This matcher compares two receipt-name forms
+    against product aliases and product names: the stored normalized receipt name and
+    an expanded receipt name with known retailer abbreviations replaced.
 
     The database does most of the work with PostgreSQL trigram functions:
 
@@ -84,8 +85,8 @@ class ReceiptProductMatcher:
         self._set_similarity_threshold(session)
         row = session.exec(
             self._build_product_match_statement().params(
-                raw_query=parsed_item.normalized_raw_name,
-                match_query=self.normalize_receipt_match_name(parsed_item.raw_name),
+                stored_receipt_name=parsed_item.normalized_raw_name,
+                expanded_receipt_name=self.expand_receipt_name(parsed_item.raw_name),
                 unit_price=parsed_item.unit_price_eur,
                 line_total=parsed_item.line_total_eur,
                 retailer_id=retailer_id,
@@ -131,7 +132,7 @@ class ReceiptProductMatcher:
         session.add(alias)
         return alias
 
-    def normalize_receipt_match_name(self, value: str) -> str:
+    def expand_receipt_name(self, value: str) -> str:
         """Expand known receipt abbreviations into a better search query."""
         result = value
         for source, target in self.receipt_name_replacements.items():
@@ -163,8 +164,8 @@ class ReceiptProductMatcher:
         PostgreSQL-specific SQL. The important pieces are CTEs for alias candidates and
         top candidates, plus a lateral subquery for the latest price observation.
         """
-        raw_query = func.lower(bindparam("raw_query"))
-        match_query = func.lower(bindparam("match_query"))
+        stored_receipt_name = func.lower(bindparam("stored_receipt_name"))
+        expanded_receipt_name = func.lower(bindparam("expanded_receipt_name"))
         unit_price = bindparam("unit_price")
         line_total = bindparam("line_total")
         retailer_id = bindparam("retailer_id")
@@ -177,16 +178,20 @@ class ReceiptProductMatcher:
             alias_name=alias_name,
             normalized_alias_name=normalized_alias_name,
             product_name=product_name,
-            raw_query=raw_query,
-            match_query=match_query,
+            stored_receipt_name=stored_receipt_name,
+            expanded_receipt_name=expanded_receipt_name,
         )
         rank_score = self._build_rank_score(
             normalized_alias_name=normalized_alias_name,
             product_name=product_name,
-            raw_query=raw_query,
-            match_query=match_query,
+            stored_receipt_name=stored_receipt_name,
+            expanded_receipt_name=expanded_receipt_name,
         )
-        exact_score = self._build_exact_score(normalized_alias_name, raw_query, match_query)
+        exact_score = self._build_exact_score(
+            normalized_alias_name,
+            stored_receipt_name,
+            expanded_receipt_name,
+        )
         retailer_score = self._build_retailer_score(retailer_id)
         source_score = self._build_source_score()
         product_rank = func.row_number().over(
@@ -220,8 +225,8 @@ class ReceiptProductMatcher:
                     ProductAlias.retailer_id.is_(None),
                 ),
                 or_(
-                    ProductAlias.normalized_alias_name.op("%")(raw_query),
-                    ProductAlias.normalized_alias_name.op("%")(match_query),
+                    ProductAlias.normalized_alias_name.op("%")(stored_receipt_name),
+                    ProductAlias.normalized_alias_name.op("%")(expanded_receipt_name),
                 ),
             )
             .cte("alias_candidates")
@@ -254,31 +259,31 @@ class ReceiptProductMatcher:
         alias_name,
         normalized_alias_name,
         product_name,
-        raw_query,
-        match_query,
+        stored_receipt_name,
+        expanded_receipt_name,
     ):
-        """Score broad text similarity using raw and expanded receipt names."""
+        """Score broad text similarity using stored and expanded receipt names."""
         return func.greatest(
-            func.similarity(normalized_alias_name, raw_query),
-            func.word_similarity(raw_query, normalized_alias_name),
-            func.similarity(normalized_alias_name, match_query),
-            func.word_similarity(match_query, normalized_alias_name),
-            func.similarity(alias_name, raw_query),
-            func.word_similarity(raw_query, alias_name),
-            func.similarity(alias_name, match_query),
-            func.word_similarity(match_query, alias_name),
-            func.similarity(product_name, raw_query),
-            func.word_similarity(raw_query, product_name),
-            func.similarity(product_name, match_query),
-            func.word_similarity(match_query, product_name),
+            func.similarity(normalized_alias_name, stored_receipt_name),
+            func.word_similarity(stored_receipt_name, normalized_alias_name),
+            func.similarity(normalized_alias_name, expanded_receipt_name),
+            func.word_similarity(expanded_receipt_name, normalized_alias_name),
+            func.similarity(alias_name, stored_receipt_name),
+            func.word_similarity(stored_receipt_name, alias_name),
+            func.similarity(alias_name, expanded_receipt_name),
+            func.word_similarity(expanded_receipt_name, alias_name),
+            func.similarity(product_name, stored_receipt_name),
+            func.word_similarity(stored_receipt_name, product_name),
+            func.similarity(product_name, expanded_receipt_name),
+            func.word_similarity(expanded_receipt_name, product_name),
         )
 
     def _build_rank_score(
         self,
         normalized_alias_name,
         product_name,
-        raw_query,
-        match_query,
+        stored_receipt_name,
+        expanded_receipt_name,
     ):
         """Score alias rows for per-product ranking.
 
@@ -286,20 +291,28 @@ class ReceiptProductMatcher:
         name fields. We want stable fields to choose the best alias row per product.
         """
         return func.greatest(
-            func.similarity(normalized_alias_name, raw_query),
-            func.word_similarity(raw_query, normalized_alias_name),
-            func.similarity(normalized_alias_name, match_query),
-            func.word_similarity(match_query, normalized_alias_name),
-            func.similarity(product_name, raw_query),
-            func.word_similarity(raw_query, product_name),
-            func.similarity(product_name, match_query),
-            func.word_similarity(match_query, product_name),
+            func.similarity(normalized_alias_name, stored_receipt_name),
+            func.word_similarity(stored_receipt_name, normalized_alias_name),
+            func.similarity(normalized_alias_name, expanded_receipt_name),
+            func.word_similarity(expanded_receipt_name, normalized_alias_name),
+            func.similarity(product_name, stored_receipt_name),
+            func.word_similarity(stored_receipt_name, product_name),
+            func.similarity(product_name, expanded_receipt_name),
+            func.word_similarity(expanded_receipt_name, product_name),
         )
 
-    def _build_exact_score(self, normalized_alias_name, raw_query, match_query):
-        """Boost aliases that exactly match the raw or expanded receipt name."""
+    def _build_exact_score(
+        self,
+        normalized_alias_name,
+        stored_receipt_name,
+        expanded_receipt_name,
+    ):
+        """Boost aliases that exactly match the stored or expanded receipt name."""
         return case(
-            (normalized_alias_name.in_([raw_query, match_query]), literal(Decimal("0.25"))),
+            (
+                normalized_alias_name.in_([stored_receipt_name, expanded_receipt_name]),
+                literal(Decimal("0.25")),
+            ),
             else_=literal(Decimal("0")),
         )
 

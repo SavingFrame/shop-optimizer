@@ -5,6 +5,7 @@ from typing import ClassVar
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import case, desc, or_
+from sqlalchemy.orm import aliased
 from sqlmodel import SQLModel, func, select
 
 from app.api.deps import SessionDep
@@ -24,11 +25,40 @@ def read_products(
 ):
     search = q.strip() if q else None
 
+    coverage_date = func.current_date() - 1
+
     if not search:
-        count_statement = select(func.count()).select_from(Product)
+        count_statement = select(
+            func.count(func.distinct(PriceObservation.product_id)),
+        ).where(PriceObservation.observed_date == coverage_date)
         count = session.exec(count_statement).one()
 
-        statement = select(Product).order_by(Product.id).offset(skip).limit(limit)
+        product_coverage = (
+            select(
+                PriceObservation.product_id.label("product_id"),
+                func.count(func.distinct(PriceObservation.retailer_id)).label(
+                    "retailer_count",
+                ),
+                func.count().label("observation_count"),
+            )
+            .where(PriceObservation.observed_date == coverage_date)
+            .group_by(PriceObservation.product_id)
+            .cte("product_coverage")
+        )
+        has_image = (Product.image_url.is_not(None)) & (Product.image_url != "")
+
+        statement = (
+            select(Product)
+            .join(product_coverage, product_coverage.c.product_id == Product.id)
+            .order_by(
+                has_image.desc(),
+                desc(product_coverage.c.retailer_count),
+                desc(product_coverage.c.observation_count),
+                Product.id,
+            )
+            .offset(skip)
+            .limit(limit)
+        )
         products = session.exec(statement).all()
 
         return ProductsPublic(count=count, data=products)
@@ -52,13 +82,41 @@ def read_products(
     count_statement = select(func.count()).select_from(Product).where(search_filter)
     count = session.exec(count_statement).one()
 
+    coverage_product = aliased(Product)
+    coverage_search_filter = or_(
+        coverage_product.barcode == search,
+        coverage_product.name.ilike(search_pattern),
+        coverage_product.alternative_name.ilike(search_pattern),
+        coverage_product.brand.ilike(search_pattern),
+        coverage_product.category.ilike(search_pattern),
+    )
+    product_coverage = (
+        select(
+            PriceObservation.product_id.label("product_id"),
+            func.count(func.distinct(PriceObservation.retailer_id)).label(
+                "retailer_count",
+            ),
+            func.count().label("observation_count"),
+        )
+        .join(coverage_product, coverage_product.id == PriceObservation.product_id)
+        .where(
+            PriceObservation.observed_date == coverage_date,
+            coverage_search_filter,
+        )
+        .group_by(PriceObservation.product_id)
+        .cte("product_coverage")
+    )
+
     statement = (
         select(Product)
+        .outerjoin(product_coverage, product_coverage.c.product_id == Product.id)
         .where(search_filter)
         .order_by(
             case((Product.barcode == search, 0), else_=1),
             desc(similarity_score),
             has_image.desc(),
+            desc(func.coalesce(product_coverage.c.retailer_count, 0)),
+            desc(func.coalesce(product_coverage.c.observation_count, 0)),
             Product.id,
         )
         .offset(skip)

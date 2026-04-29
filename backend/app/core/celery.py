@@ -1,27 +1,13 @@
 import datetime
-import logging
+import uuid
 
 from celery import Celery
 from celery.schedules import crontab
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.core.db import engine
-from app.models.retailer import ReailerEnum
-from app.models.store import Store
 from app.services.openfoodfacts_product_images import OpenFoodFactsProductImageSyncer
-from app.services.price_csv_importer import (
-    KauflandPriceCsvParser,
-    LidlPriceCsvParser,
-    PriceCsvImporter,
-    SparPriceCsvParser,
-)
-from app.services.price_downloader import (
-    KauflandPriceDownloader,
-    LidlPriceDownloader,
-    SparPriceDownloader,
-)
-
-logger = logging.getLogger(__name__)
+from app.services.price_csv_import_job import PriceCsvImportJob, parse_import_date
 
 celery = Celery(
     "worker",
@@ -38,42 +24,23 @@ celery.conf.beat_schedule = {
 
 
 @celery.task
-def download_csv(date: datetime.date | None = None):
-    today = date or datetime.date.today()
-    retailer_imports = [
-        (ReailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
-        (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
-        (
-            ReailerEnum.KAUFLAND.value.id,
-            KauflandPriceDownloader(),
-            KauflandPriceCsvParser(),
-        ),
-    ]
+def download_csv(date: datetime.date | str | None = None):
+    today = parse_import_date(date)
+    job = PriceCsvImportJob()
 
-    with Session(engine) as session:
-        for retailer_id, downloader, parser in retailer_imports:
-            stores = session.exec(
-                select(Store).where(Store.retailer_id == retailer_id)
-            ).all()
-            if not stores:
-                logger.info(
-                    "No stores found for retailer %s, skipping CSV import.",
-                    parser.retailer_name,
-                )
-                continue
+    for retailer_id in job.supported_retailer_ids():
+        download_retailer_csv.delay(
+            retailer_id=str(retailer_id),
+            date=today.isoformat(),
+        )
 
-            downloader.download_prices_list(date=today)
-            importer = PriceCsvImporter(
-                parser=parser,
-                observed_date=today,
-            )
-            for store in stores:
-                rows = downloader.download_price_csv_for_store(store=store)
-                importer.import_prices(
-                    session=session,
-                    rows=rows,
-                    store=store,
-                )
+
+@celery.task
+def download_retailer_csv(retailer_id: str, date: str):
+    PriceCsvImportJob().import_retailer(
+        retailer_id=uuid.UUID(retailer_id),
+        date=parse_import_date(date),
+    )
 
 
 @celery.task

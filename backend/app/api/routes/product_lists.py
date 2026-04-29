@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, status
@@ -6,6 +7,7 @@ from sqlmodel import SQLModel, delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models.common import get_datetime_utc
+from app.models.price_observation import PriceObservation
 from app.models.product import Product, ProductPublic
 from app.models.product_list import (
     ProductList,
@@ -15,6 +17,7 @@ from app.models.product_list import (
     ProductListPublic,
     ProductListsPublic,
 )
+from app.models.retailer import Retailer, RetailerPublic
 
 router = APIRouter(prefix="/product-lists", tags=["product-lists"])
 
@@ -26,18 +29,27 @@ class ProductListUpdate(SQLModel):
 
 class ProductListItemCreate(SQLModel):
     product_id: uuid.UUID
-    quantity: Decimal = Decimal("1.000")
+    quantity: Decimal = Decimal("1")
     note: str | None = None
 
 
 class ProductListItemUpdate(SQLModel):
     quantity: Decimal | None = None
     note: str | None = None
-    product_id: uuid.UUID
 
 
 class ProductListItemDetailPublic(ProductListItemPublic):
     product: ProductPublic
+
+
+class ProductListRetailerPriceHistoryPoint(SQLModel):
+    retailer: RetailerPublic
+    observed_date: date
+    total_price_eur: Decimal
+    matched_item_count: int
+    total_item_count: int
+    has_missing_prices: bool
+    has_special_sale: bool
 
 
 @router.post("", response_model=ProductListPublic)
@@ -92,7 +104,7 @@ def read_product_lists(
     return ProductListsPublic(data=product_lists, count=count)
 
 
-@router.get("/{product_list_id}", response_model=ProductListItemPublic)
+@router.get("/{product_list_id}", response_model=ProductListPublic)
 def read_product_list(
     product_list_id: uuid.UUID,
     session: SessionDep,
@@ -132,6 +144,83 @@ def delete_product_list(
     )
     session.delete(product_list)
     session.commit()
+
+
+@router.get(
+    "/{product_list_id}/price-history/retail/chart",
+    response_model=list[ProductListRetailerPriceHistoryPoint],
+)
+def product_list_retail_price_history_chart(
+    product_list_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[ProductListRetailerPriceHistoryPoint]:
+    product_list = _get_user_product_list(session, current_user.id, product_list_id)
+    total_item_count = session.exec(
+        select(func.count())
+        .select_from(ProductListItem)
+        .where(ProductListItem.product_list_id == product_list.id)
+    ).one()
+    if total_item_count == 0:
+        return []
+
+    item_prices = (
+        select(
+            PriceObservation.retailer_id.label("retailer_id"),
+            PriceObservation.observed_date.label("observed_date"),
+            PriceObservation.product_id.label("product_id"),
+            ProductListItem.quantity.label("quantity"),
+            func.avg(PriceObservation.price_eur).label("average_price_eur"),
+            func.bool_or(PriceObservation.is_special_sale).label("has_special_sale"),
+        )
+        .join(ProductListItem, ProductListItem.product_id == PriceObservation.product_id)
+        .where(
+            ProductListItem.product_list_id == product_list.id,
+            PriceObservation.price_eur.is_not(None),
+        )
+        .group_by(
+            PriceObservation.retailer_id,
+            PriceObservation.observed_date,
+            PriceObservation.product_id,
+            ProductListItem.quantity,
+        )
+        .subquery()
+    )
+
+    statement = (
+        select(
+            Retailer,
+            item_prices.c.observed_date,
+            func.sum(item_prices.c.average_price_eur * item_prices.c.quantity).label(
+                "total_price_eur",
+            ),
+            func.count(item_prices.c.product_id).label("matched_item_count"),
+            func.bool_or(item_prices.c.has_special_sale).label("has_special_sale"),
+        )
+        .join(Retailer, Retailer.id == item_prices.c.retailer_id)
+        .group_by(Retailer.id, Retailer.name, item_prices.c.observed_date)
+        .order_by(item_prices.c.observed_date, Retailer.name)
+    )
+
+    rows = session.exec(statement).all()
+    return [
+        ProductListRetailerPriceHistoryPoint(
+            retailer=retailer,
+            observed_date=observed_date,
+            total_price_eur=total_price_eur,
+            matched_item_count=matched_item_count,
+            total_item_count=total_item_count,
+            has_missing_prices=matched_item_count < total_item_count,
+            has_special_sale=bool(has_special_sale),
+        )
+        for (
+            retailer,
+            observed_date,
+            total_price_eur,
+            matched_item_count,
+            has_special_sale,
+        ) in rows
+    ]
 
 
 @router.get(

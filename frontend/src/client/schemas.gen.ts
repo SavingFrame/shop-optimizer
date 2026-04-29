@@ -336,6 +336,286 @@ export const PrivateUserCreateSchema = {
     title: 'PrivateUserCreate'
 } as const;
 
+export const ProductListBaseSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Name',
+            description: 'User-facing product list name, for example Weekly groceries.'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 1024
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description',
+            description: 'Optional notes about what this product list is for.'
+        }
+    },
+    type: 'object',
+    required: ['name'],
+    title: 'ProductListBase'
+} as const;
+
+export const ProductListItemCreateSchema = {
+    properties: {
+        product_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product Id'
+        },
+        quantity: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                }
+            ],
+            title: 'Quantity',
+            default: '1'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    required: ['product_id'],
+    title: 'ProductListItemCreate'
+} as const;
+
+export const ProductListItemDetailPublicSchema = {
+    properties: {
+        product_list_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product List Id'
+        },
+        product_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product Id'
+        },
+        quantity: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Quantity',
+            description: 'How many units of the canonical product are planned for this list.',
+            default: '1'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 1024
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note',
+            description: 'Optional note for this list item.'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        product: {
+            '$ref': '#/components/schemas/ProductPublic'
+        }
+    },
+    type: 'object',
+    required: ['product_list_id', 'product_id', 'id', 'product'],
+    title: 'ProductListItemDetailPublic'
+} as const;
+
+export const ProductListItemUpdateSchema = {
+    properties: {
+        quantity: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Quantity'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: 'ProductListItemUpdate'
+} as const;
+
+export const ProductListPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Name',
+            description: 'User-facing product list name, for example Weekly groceries.'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 1024
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description',
+            description: 'Optional notes about what this product list is for.'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['name', 'id'],
+    title: 'ProductListPublic'
+} as const;
+
+export const ProductListRetailerPriceHistoryPointSchema = {
+    properties: {
+        retailer: {
+            '$ref': '#/components/schemas/RetailerPublic'
+        },
+        observed_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Observed Date'
+        },
+        total_price_eur: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total Price Eur'
+        },
+        matched_item_count: {
+            type: 'integer',
+            title: 'Matched Item Count'
+        },
+        total_item_count: {
+            type: 'integer',
+            title: 'Total Item Count'
+        },
+        has_missing_prices: {
+            type: 'boolean',
+            title: 'Has Missing Prices'
+        },
+        has_special_sale: {
+            type: 'boolean',
+            title: 'Has Special Sale'
+        }
+    },
+    type: 'object',
+    required: ['retailer', 'observed_date', 'total_price_eur', 'matched_item_count', 'total_item_count', 'has_missing_prices', 'has_special_sale'],
+    title: 'ProductListRetailerPriceHistoryPoint'
+} as const;
+
+export const ProductListUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    title: 'ProductListUpdate'
+} as const;
+
+export const ProductListsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ProductListPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ProductListsPublic'
+} as const;
+
 export const ProductPublicSchema = {
     properties: {
         barcode: {
@@ -426,6 +706,19 @@ export const ProductPublicSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Id'
+        },
+        latest_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latest Price Eur',
+            description: 'Product price from one latest available observation.'
         }
     },
     type: 'object',
@@ -450,107 +743,6 @@ export const ProductsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ProductsPublic'
-} as const;
-
-export const ReceiptSchema = {
-    properties: {
-        retailer_id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Retailer Id'
-        },
-        store_id: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'uuid'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Store Id'
-        },
-        user_id: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'uuid'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'User Id'
-        },
-        purchase_datetime: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'date-time'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Purchase Datetime',
-            description: 'Datetime when the purchase was made, as parsed from the receipt.'
-        },
-        total_eur: {
-            anyOf: [
-                {
-                    type: 'string',
-                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Total Eur',
-            description: 'Final receipt total in EUR.'
-        },
-        file_key: {
-            type: 'string',
-            maxLength: 512,
-            title: 'File Key',
-            description: 'Storage key or path for the uploaded receipt file.'
-        },
-        status: {
-            '$ref': '#/components/schemas/ReceiptStatus',
-            description: 'User review lifecycle status for the receipt.',
-            default: 'draft'
-        },
-        raw_text: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Raw Text',
-            description: 'Text extracted from the uploaded receipt file.'
-        },
-        created_at: {
-            type: 'string',
-            format: 'date-time',
-            title: 'Created At'
-        },
-        updated_at: {
-            type: 'string',
-            format: 'date-time',
-            title: 'Updated At'
-        },
-        id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Id'
-        }
-    },
-    type: 'object',
-    required: ['retailer_id', 'file_key'],
-    title: 'Receipt'
 } as const;
 
 export const ReceiptItemReviewPublicSchema = {

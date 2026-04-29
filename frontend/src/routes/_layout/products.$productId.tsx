@@ -28,6 +28,7 @@ import {
   type RetailerDailyRetailPriceHistoryPoint,
   type RetailerPriceObservationSummary,
 } from "@/client"
+import { AddProductToListDialog } from "@/components/ProductLists/AddProductToListDialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -207,18 +208,28 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3 p-6 pt-0 sm:grid-cols-2 sm:p-8 sm:pt-0">
-          <InfoTile
-            icon={PackageOpen}
-            label="Quantity"
-            value={product.net_quantity}
-          />
-          <InfoTile icon={Ruler} label="Unit" value={product.unit_of_measure} />
-          <InfoTile icon={Barcode} label="Barcode" value={product.barcode} />
-          <InfoTile
-            icon={Store}
-            label="Retailer prices"
-            value={pricesCount.toString()}
+        <CardContent className="space-y-4 p-6 pt-0 sm:p-8 sm:pt-0">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <InfoTile
+              icon={PackageOpen}
+              label="Quantity"
+              value={product.net_quantity}
+            />
+            <InfoTile
+              icon={Ruler}
+              label="Unit"
+              value={product.unit_of_measure}
+            />
+            <InfoTile icon={Barcode} label="Barcode" value={product.barcode} />
+            <InfoTile
+              icon={Store}
+              label="Retailer prices"
+              value={pricesCount.toString()}
+            />
+          </div>
+          <AddProductToListDialog
+            productId={product.id}
+            productName={product.name}
           />
         </CardContent>
       </Card>

@@ -16,8 +16,8 @@ import { useEffect, useMemo, useState } from "react"
 import {
   type ProductPublic,
   ProductsService,
-  type Receipt,
   type ReceiptItemReviewPublic,
+  type ReceiptPublic,
   ReceiptsService,
 } from "@/client"
 import { Badge } from "@/components/ui/badge"
@@ -271,7 +271,7 @@ function ReceiptDetailPage() {
 type ReceiptItemsTableProps = {
   disabled: boolean
   items: Array<ReceiptItemReviewPublic>
-  receipt: Receipt
+  receipt: ReceiptPublic
 }
 
 function ReceiptItemsTable({

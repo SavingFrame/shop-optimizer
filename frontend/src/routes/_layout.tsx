@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import {
+  ListChecks,
   LogIn,
   LogOut,
   PackageSearch,
@@ -24,60 +25,78 @@ function Layout() {
     <div className="min-h-screen overflow-hidden bg-background text-foreground">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_34rem),radial-gradient(circle_at_top_right,rgba(132,204,22,0.12),transparent_30rem)]" />
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+          <Link to="/" className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
               <ShoppingBasket className="size-5" />
             </span>
-            <div>
-              <p className="font-semibold tracking-tight">Shop Optimizer</p>
-              <p className="text-xs text-muted-foreground">
+            <div className="min-w-0 leading-tight">
+              <p className="truncate font-semibold tracking-tight">
+                Shop Optimizer
+              </p>
+              <p className="hidden truncate text-xs text-muted-foreground xl:block">
                 Croatian grocery intelligence
               </p>
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-            <Link className="transition hover:text-foreground" to="/products">
-              Products
-            </Link>
-            <a className="transition hover:text-foreground" href="#basket">
-              Basket
-            </a>
-            <Link className="transition hover:text-foreground" to="/receipts">
-              Receipts
-            </Link>
+          <nav className="hidden flex-1 items-center justify-center md:flex">
+            <div className="flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 p-1 text-sm text-muted-foreground">
+              <Link
+                className="flex items-center gap-2 rounded-full px-3 py-1.5 transition hover:bg-background/70 hover:text-foreground"
+                activeProps={{
+                  className: "bg-background text-foreground shadow-sm",
+                }}
+                to="/products"
+              >
+                <PackageSearch className="size-4" />
+                Products
+              </Link>
+              <Link
+                className="flex items-center gap-2 rounded-full px-3 py-1.5 transition hover:bg-background/70 hover:text-foreground"
+                activeProps={{
+                  className: "bg-background text-foreground shadow-sm",
+                }}
+                to="/product-lists"
+              >
+                <ListChecks className="size-4" />
+                Lists
+              </Link>
+              <Link
+                className="flex items-center gap-2 rounded-full px-3 py-1.5 transition hover:bg-background/70 hover:text-foreground"
+                activeProps={{
+                  className: "bg-background text-foreground shadow-sm",
+                }}
+                to="/receipts"
+              >
+                <ReceiptText className="size-4" />
+                Receipts
+              </Link>
+            </div>
           </nav>
 
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/products">
-                <PackageSearch className="size-4" />
-                Browse products
-              </Link>
-            </Button>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <Button size="sm" className="hidden sm:inline-flex" asChild>
               <Link to="/receipts">
                 <ReceiptText className="size-4" />
-                Receipt upload
+                Upload receipt
               </Link>
             </Button>
             {loggedIn ? (
               <>
                 {user?.email && (
-                  <span className="hidden max-w-48 truncate text-sm text-muted-foreground lg:inline">
+                  <span className="hidden max-w-40 truncate rounded-full border border-border/70 px-3 py-1.5 text-sm text-muted-foreground xl:inline">
                     {user.email}
                   </span>
                 )}
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/settings">
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link to="/settings" aria-label="Settings">
                     <Settings className="size-4" />
-                    Settings
                   </Link>
                 </Button>
                 <Button variant="outline" size="sm" onClick={logout}>
                   <LogOut className="size-4" />
-                  Log out
+                  <span className="hidden lg:inline">Log out</span>
                 </Button>
               </>
             ) : (

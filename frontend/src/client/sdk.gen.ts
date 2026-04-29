@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsDeleteReceiptData, ReceiptsDeleteReceiptResponse, ReceiptsReadReceiptItemsData, ReceiptsReadReceiptItemsResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductListsCreateProductListData, ProductListsCreateProductListResponse, ProductListsReadProductListsData, ProductListsReadProductListsResponse, ProductListsReadProductListData, ProductListsReadProductListResponse, ProductListsUpdateProductListData, ProductListsUpdateProductListResponse, ProductListsDeleteProductListData, ProductListsDeleteProductListResponse, ProductListsProductListRetailPriceHistoryChartData, ProductListsProductListRetailPriceHistoryChartResponse, ProductListsReadProductListItemsData, ProductListsReadProductListItemsResponse, ProductListsCreateProductListItemData, ProductListsCreateProductListItemResponse, ProductListsUpdateProductListItemData, ProductListsUpdateProductListItemResponse, ProductListsDeleteProductListItemData, ProductListsDeleteProductListItemResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsDeleteReceiptData, ReceiptsDeleteReceiptResponse, ReceiptsReadReceiptItemsData, ReceiptsReadReceiptItemsResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class DashboardService {
     /**
@@ -146,6 +146,222 @@ export class PrivateService {
     }
 }
 
+export class ProductListsService {
+    /**
+     * Create Product List
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ProductListPublic Successful Response
+     * @throws ApiError
+     */
+    public static createProductList(data: ProductListsCreateProductListData): CancelablePromise<ProductListsCreateProductListResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/product-lists',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Product Lists
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @returns ProductListsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readProductLists(data: ProductListsReadProductListsData = {}): CancelablePromise<ProductListsReadProductListsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/product-lists',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Product List
+     * @param data The data for the request.
+     * @param data.productListId
+     * @returns ProductListPublic Successful Response
+     * @throws ApiError
+     */
+    public static readProductList(data: ProductListsReadProductListData): CancelablePromise<ProductListsReadProductListResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/product-lists/{product_list_id}',
+            path: {
+                product_list_id: data.productListId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Product List
+     * @param data The data for the request.
+     * @param data.productListId
+     * @param data.requestBody
+     * @returns ProductListPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateProductList(data: ProductListsUpdateProductListData): CancelablePromise<ProductListsUpdateProductListResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/product-lists/{product_list_id}',
+            path: {
+                product_list_id: data.productListId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Product List
+     * @param data The data for the request.
+     * @param data.productListId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteProductList(data: ProductListsDeleteProductListData): CancelablePromise<ProductListsDeleteProductListResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/product-lists/{product_list_id}',
+            path: {
+                product_list_id: data.productListId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Product List Retail Price History Chart
+     * @param data The data for the request.
+     * @param data.productListId
+     * @returns ProductListRetailerPriceHistoryPoint Successful Response
+     * @throws ApiError
+     */
+    public static productListRetailPriceHistoryChart(data: ProductListsProductListRetailPriceHistoryChartData): CancelablePromise<ProductListsProductListRetailPriceHistoryChartResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/product-lists/{product_list_id}/price-history/retail/chart',
+            path: {
+                product_list_id: data.productListId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Product List Items
+     * @param data The data for the request.
+     * @param data.productListId
+     * @returns ProductListItemDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static readProductListItems(data: ProductListsReadProductListItemsData): CancelablePromise<ProductListsReadProductListItemsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/product-lists/{product_list_id}/items',
+            path: {
+                product_list_id: data.productListId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Product List Item
+     * @param data The data for the request.
+     * @param data.productListId
+     * @param data.requestBody
+     * @returns ProductListItemDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static createProductListItem(data: ProductListsCreateProductListItemData): CancelablePromise<ProductListsCreateProductListItemResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/product-lists/{product_list_id}/items',
+            path: {
+                product_list_id: data.productListId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Product List Item
+     * @param data The data for the request.
+     * @param data.productListId
+     * @param data.itemId
+     * @param data.requestBody
+     * @returns ProductListItemDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateProductListItem(data: ProductListsUpdateProductListItemData): CancelablePromise<ProductListsUpdateProductListItemResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/product-lists/{product_list_id}/items/{item_id}',
+            path: {
+                product_list_id: data.productListId,
+                item_id: data.itemId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Product List Item
+     * @param data The data for the request.
+     * @param data.productListId
+     * @param data.itemId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteProductListItem(data: ProductListsDeleteProductListItemData): CancelablePromise<ProductListsDeleteProductListItemResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/product-lists/{product_list_id}/items/{item_id}',
+            path: {
+                product_list_id: data.productListId,
+                item_id: data.itemId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class ProductsService {
     /**
      * Read Products
@@ -257,7 +473,7 @@ export class ReceiptsService {
      * Create Receipt
      * @param data The data for the request.
      * @param data.formData
-     * @returns Receipt Successful Response
+     * @returns ReceiptPublic Successful Response
      * @throws ApiError
      */
     public static createReceipt(data: ReceiptsCreateReceiptData): CancelablePromise<ReceiptsCreateReceiptResponse> {
@@ -298,7 +514,7 @@ export class ReceiptsService {
      * Read Receipt
      * @param data The data for the request.
      * @param data.receiptId
-     * @returns Receipt Successful Response
+     * @returns ReceiptPublic Successful Response
      * @throws ApiError
      */
     public static readReceipt(data: ReceiptsReadReceiptData): CancelablePromise<ReceiptsReadReceiptResponse> {
@@ -319,7 +535,7 @@ export class ReceiptsService {
      * @param data The data for the request.
      * @param data.receiptId
      * @param data.requestBody
-     * @returns Receipt Successful Response
+     * @returns ReceiptPublic Successful Response
      * @throws ApiError
      */
     public static updateReceipt(data: ReceiptsUpdateReceiptData): CancelablePromise<ReceiptsUpdateReceiptResponse> {
@@ -341,7 +557,7 @@ export class ReceiptsService {
      * Delete Receipt
      * @param data The data for the request.
      * @param data.receiptId
-     * @returns unknown Successful Response
+     * @returns void Successful Response
      * @throws ApiError
      */
     public static deleteReceipt(data: ReceiptsDeleteReceiptData): CancelablePromise<ReceiptsDeleteReceiptResponse> {

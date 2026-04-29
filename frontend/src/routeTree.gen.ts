@@ -18,11 +18,14 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutReceiptsRouteImport } from './routes/_layout/receipts'
 import { Route as LayoutProductsRouteImport } from './routes/_layout/products'
+import { Route as LayoutProductListsRouteImport } from './routes/_layout/product-lists'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutReceiptsIndexRouteImport } from './routes/_layout/receipts.index'
 import { Route as LayoutProductsIndexRouteImport } from './routes/_layout/products.index'
+import { Route as LayoutProductListsIndexRouteImport } from './routes/_layout/product-lists.index'
 import { Route as LayoutReceiptsReceiptIdRouteImport } from './routes/_layout/receipts.$receiptId'
 import { Route as LayoutProductsProductIdRouteImport } from './routes/_layout/products.$productId'
+import { Route as LayoutProductListsProductListIdRouteImport } from './routes/_layout/product-lists.$productListId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -68,6 +71,11 @@ const LayoutProductsRoute = LayoutProductsRouteImport.update({
   path: '/products',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutProductListsRoute = LayoutProductListsRouteImport.update({
+  id: '/product-lists',
+  path: '/product-lists',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -83,6 +91,11 @@ const LayoutProductsIndexRoute = LayoutProductsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutProductsRoute,
 } as any)
+const LayoutProductListsIndexRoute = LayoutProductListsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutProductListsRoute,
+} as any)
 const LayoutReceiptsReceiptIdRoute = LayoutReceiptsReceiptIdRouteImport.update({
   id: '/$receiptId',
   path: '/$receiptId',
@@ -93,6 +106,12 @@ const LayoutProductsProductIdRoute = LayoutProductsProductIdRouteImport.update({
   path: '/$productId',
   getParentRoute: () => LayoutProductsRoute,
 } as any)
+const LayoutProductListsProductListIdRoute =
+  LayoutProductListsProductListIdRouteImport.update({
+    id: '/$productListId',
+    path: '/$productListId',
+    getParentRoute: () => LayoutProductListsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -101,11 +120,14 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/product-lists': typeof LayoutProductListsRouteWithChildren
   '/products': typeof LayoutProductsRouteWithChildren
   '/receipts': typeof LayoutReceiptsRouteWithChildren
   '/settings': typeof LayoutSettingsRoute
+  '/product-lists/$productListId': typeof LayoutProductListsProductListIdRoute
   '/products/$productId': typeof LayoutProductsProductIdRoute
   '/receipts/$receiptId': typeof LayoutReceiptsReceiptIdRoute
+  '/product-lists/': typeof LayoutProductListsIndexRoute
   '/products/': typeof LayoutProductsIndexRoute
   '/receipts/': typeof LayoutReceiptsIndexRoute
 }
@@ -117,8 +139,10 @@ export interface FileRoutesByTo {
   '/admin': typeof LayoutAdminRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
+  '/product-lists/$productListId': typeof LayoutProductListsProductListIdRoute
   '/products/$productId': typeof LayoutProductsProductIdRoute
   '/receipts/$receiptId': typeof LayoutReceiptsReceiptIdRoute
+  '/product-lists': typeof LayoutProductListsIndexRoute
   '/products': typeof LayoutProductsIndexRoute
   '/receipts': typeof LayoutReceiptsIndexRoute
 }
@@ -130,12 +154,15 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/product-lists': typeof LayoutProductListsRouteWithChildren
   '/_layout/products': typeof LayoutProductsRouteWithChildren
   '/_layout/receipts': typeof LayoutReceiptsRouteWithChildren
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/product-lists/$productListId': typeof LayoutProductListsProductListIdRoute
   '/_layout/products/$productId': typeof LayoutProductsProductIdRoute
   '/_layout/receipts/$receiptId': typeof LayoutReceiptsReceiptIdRoute
+  '/_layout/product-lists/': typeof LayoutProductListsIndexRoute
   '/_layout/products/': typeof LayoutProductsIndexRoute
   '/_layout/receipts/': typeof LayoutReceiptsIndexRoute
 }
@@ -148,11 +175,14 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/product-lists'
     | '/products'
     | '/receipts'
     | '/settings'
+    | '/product-lists/$productListId'
     | '/products/$productId'
     | '/receipts/$receiptId'
+    | '/product-lists/'
     | '/products/'
     | '/receipts/'
   fileRoutesByTo: FileRoutesByTo
@@ -164,8 +194,10 @@ export interface FileRouteTypes {
     | '/admin'
     | '/settings'
     | '/'
+    | '/product-lists/$productListId'
     | '/products/$productId'
     | '/receipts/$receiptId'
+    | '/product-lists'
     | '/products'
     | '/receipts'
   id:
@@ -176,12 +208,15 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
+    | '/_layout/product-lists'
     | '/_layout/products'
     | '/_layout/receipts'
     | '/_layout/settings'
     | '/_layout/'
+    | '/_layout/product-lists/$productListId'
     | '/_layout/products/$productId'
     | '/_layout/receipts/$receiptId'
+    | '/_layout/product-lists/'
     | '/_layout/products/'
     | '/_layout/receipts/'
   fileRoutesById: FileRoutesById
@@ -259,6 +294,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProductsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/product-lists': {
+      id: '/_layout/product-lists'
+      path: '/product-lists'
+      fullPath: '/product-lists'
+      preLoaderRoute: typeof LayoutProductListsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/admin': {
       id: '/_layout/admin'
       path: '/admin'
@@ -280,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProductsIndexRouteImport
       parentRoute: typeof LayoutProductsRoute
     }
+    '/_layout/product-lists/': {
+      id: '/_layout/product-lists/'
+      path: '/'
+      fullPath: '/product-lists/'
+      preLoaderRoute: typeof LayoutProductListsIndexRouteImport
+      parentRoute: typeof LayoutProductListsRoute
+    }
     '/_layout/receipts/$receiptId': {
       id: '/_layout/receipts/$receiptId'
       path: '/$receiptId'
@@ -294,8 +343,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProductsProductIdRouteImport
       parentRoute: typeof LayoutProductsRoute
     }
+    '/_layout/product-lists/$productListId': {
+      id: '/_layout/product-lists/$productListId'
+      path: '/$productListId'
+      fullPath: '/product-lists/$productListId'
+      preLoaderRoute: typeof LayoutProductListsProductListIdRouteImport
+      parentRoute: typeof LayoutProductListsRoute
+    }
   }
 }
+
+interface LayoutProductListsRouteChildren {
+  LayoutProductListsProductListIdRoute: typeof LayoutProductListsProductListIdRoute
+  LayoutProductListsIndexRoute: typeof LayoutProductListsIndexRoute
+}
+
+const LayoutProductListsRouteChildren: LayoutProductListsRouteChildren = {
+  LayoutProductListsProductListIdRoute: LayoutProductListsProductListIdRoute,
+  LayoutProductListsIndexRoute: LayoutProductListsIndexRoute,
+}
+
+const LayoutProductListsRouteWithChildren =
+  LayoutProductListsRoute._addFileChildren(LayoutProductListsRouteChildren)
 
 interface LayoutProductsRouteChildren {
   LayoutProductsProductIdRoute: typeof LayoutProductsProductIdRoute
@@ -327,6 +396,7 @@ const LayoutReceiptsRouteWithChildren = LayoutReceiptsRoute._addFileChildren(
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutProductListsRoute: typeof LayoutProductListsRouteWithChildren
   LayoutProductsRoute: typeof LayoutProductsRouteWithChildren
   LayoutReceiptsRoute: typeof LayoutReceiptsRouteWithChildren
   LayoutSettingsRoute: typeof LayoutSettingsRoute
@@ -335,6 +405,7 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
+  LayoutProductListsRoute: LayoutProductListsRouteWithChildren,
   LayoutProductsRoute: LayoutProductsRouteWithChildren,
   LayoutReceiptsRoute: LayoutReceiptsRouteWithChildren,
   LayoutSettingsRoute: LayoutSettingsRoute,

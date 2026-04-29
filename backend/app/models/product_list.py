@@ -66,7 +66,7 @@ class ProductListItemBase(SQLModel):
     product_list_id: uuid.UUID = Field(foreign_key="productlist.id", index=True)
     product_id: uuid.UUID = Field(foreign_key="product.id", index=True)
     quantity: Decimal = Field(
-        default=Decimal("1.000"),
+        default=Decimal("1"),
         sa_column=Column(Numeric(10, 3), nullable=False),
         description="How many units of the canonical product are planned for this list.",
     )

@@ -90,6 +90,79 @@ export type PrivateUserCreate = {
     is_verified?: boolean;
 };
 
+export type ProductListBase = {
+    /**
+     * User-facing product list name, for example Weekly groceries.
+     */
+    name: string;
+    /**
+     * Optional notes about what this product list is for.
+     */
+    description?: (string | null);
+};
+
+export type ProductListItemCreate = {
+    product_id: string;
+    quantity?: (number | string);
+    note?: (string | null);
+};
+
+export type ProductListItemDetailPublic = {
+    product_list_id: string;
+    product_id: string;
+    /**
+     * How many units of the canonical product are planned for this list.
+     */
+    quantity?: string;
+    /**
+     * Optional note for this list item.
+     */
+    note?: (string | null);
+    created_at?: string;
+    updated_at?: string;
+    id: string;
+    product: ProductPublic;
+};
+
+export type ProductListItemUpdate = {
+    quantity?: (number | string | null);
+    note?: (string | null);
+};
+
+export type ProductListPublic = {
+    /**
+     * User-facing product list name, for example Weekly groceries.
+     */
+    name: string;
+    /**
+     * Optional notes about what this product list is for.
+     */
+    description?: (string | null);
+    id: string;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type ProductListRetailerPriceHistoryPoint = {
+    retailer: RetailerPublic;
+    observed_date: string;
+    total_price_eur: string;
+    matched_item_count: number;
+    total_item_count: number;
+    has_missing_prices: boolean;
+    has_special_sale: boolean;
+};
+
+export type ProductListsPublic = {
+    data: Array<ProductListPublic>;
+    count: number;
+};
+
+export type ProductListUpdate = {
+    name?: (string | null);
+    description?: (string | null);
+};
+
 export type ProductPublic = {
     /**
      * Cross retailer product identifier when present. Original CSV column: barkod or BARKOD.
@@ -129,35 +202,6 @@ export type ProductPublic = {
 export type ProductsPublic = {
     data: Array<ProductPublic>;
     count: number;
-};
-
-export type Receipt = {
-    retailer_id: string;
-    store_id?: (string | null);
-    user_id?: (string | null);
-    /**
-     * Datetime when the purchase was made, as parsed from the receipt.
-     */
-    purchase_datetime?: (string | null);
-    /**
-     * Final receipt total in EUR.
-     */
-    total_eur?: (string | null);
-    /**
-     * Storage key or path for the uploaded receipt file.
-     */
-    file_key: string;
-    /**
-     * User review lifecycle status for the receipt.
-     */
-    status?: ReceiptStatus;
-    /**
-     * Text extracted from the uploaded receipt file.
-     */
-    raw_text?: (string | null);
-    created_at?: string;
-    updated_at?: string;
-    id?: string;
 };
 
 export type ReceiptItemReviewPublic = {
@@ -392,6 +436,72 @@ export type PrivateCreateUserData = {
 
 export type PrivateCreateUserResponse = (UserPublic);
 
+export type ProductListsCreateProductListData = {
+    requestBody: ProductListBase;
+};
+
+export type ProductListsCreateProductListResponse = (ProductListPublic);
+
+export type ProductListsReadProductListsData = {
+    limit?: number;
+    skip?: number;
+};
+
+export type ProductListsReadProductListsResponse = (ProductListsPublic);
+
+export type ProductListsReadProductListData = {
+    productListId: string;
+};
+
+export type ProductListsReadProductListResponse = (ProductListPublic);
+
+export type ProductListsUpdateProductListData = {
+    productListId: string;
+    requestBody: ProductListUpdate;
+};
+
+export type ProductListsUpdateProductListResponse = (ProductListPublic);
+
+export type ProductListsDeleteProductListData = {
+    productListId: string;
+};
+
+export type ProductListsDeleteProductListResponse = (void);
+
+export type ProductListsProductListRetailPriceHistoryChartData = {
+    productListId: string;
+};
+
+export type ProductListsProductListRetailPriceHistoryChartResponse = (Array<ProductListRetailerPriceHistoryPoint>);
+
+export type ProductListsReadProductListItemsData = {
+    productListId: string;
+};
+
+export type ProductListsReadProductListItemsResponse = (Array<ProductListItemDetailPublic>);
+
+export type ProductListsCreateProductListItemData = {
+    productListId: string;
+    requestBody: ProductListItemCreate;
+};
+
+export type ProductListsCreateProductListItemResponse = (ProductListItemDetailPublic);
+
+export type ProductListsUpdateProductListItemData = {
+    itemId: string;
+    productListId: string;
+    requestBody: ProductListItemUpdate;
+};
+
+export type ProductListsUpdateProductListItemResponse = (ProductListItemDetailPublic);
+
+export type ProductListsDeleteProductListItemData = {
+    itemId: string;
+    productListId: string;
+};
+
+export type ProductListsDeleteProductListItemResponse = (void);
+
 export type ProductsReadProductsData = {
     limit?: number;
     q?: (string | null);
@@ -428,7 +538,7 @@ export type ReceiptsCreateReceiptData = {
     formData: Body_receipts_create_receipt;
 };
 
-export type ReceiptsCreateReceiptResponse = (Receipt);
+export type ReceiptsCreateReceiptResponse = (ReceiptPublic);
 
 export type ReceiptsReadReceiptsData = {
     limit?: number;
@@ -441,20 +551,20 @@ export type ReceiptsReadReceiptData = {
     receiptId: string;
 };
 
-export type ReceiptsReadReceiptResponse = (Receipt);
+export type ReceiptsReadReceiptResponse = (ReceiptPublic);
 
 export type ReceiptsUpdateReceiptData = {
     receiptId: string;
     requestBody: ReceiptUpdate;
 };
 
-export type ReceiptsUpdateReceiptResponse = (Receipt);
+export type ReceiptsUpdateReceiptResponse = (ReceiptPublic);
 
 export type ReceiptsDeleteReceiptData = {
     receiptId: string;
 };
 
-export type ReceiptsDeleteReceiptResponse = unknown;
+export type ReceiptsDeleteReceiptResponse = (void);
 
 export type ReceiptsReadReceiptItemsData = {
     receiptId: string;

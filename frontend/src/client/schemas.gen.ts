@@ -363,6 +363,89 @@ export const ProductListBaseSchema = {
     title: 'ProductListBase'
 } as const;
 
+export const ProductListItemAlternativeCreateSchema = {
+    properties: {
+        product_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product Id'
+        }
+    },
+    type: 'object',
+    required: ['product_id'],
+    title: 'ProductListItemAlternativeCreate'
+} as const;
+
+export const ProductListItemAlternativeDetailPublicSchema = {
+    properties: {
+        product_list_item_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product List Item Id'
+        },
+        product_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        product: {
+            '$ref': '#/components/schemas/ProductPublic'
+        }
+    },
+    type: 'object',
+    required: ['product_list_item_id', 'product_id', 'id', 'product'],
+    title: 'ProductListItemAlternativeDetailPublic'
+} as const;
+
+export const ProductListItemAlternativesBulkCreateSchema = {
+    properties: {
+        product_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Product Ids'
+        }
+    },
+    type: 'object',
+    required: ['product_ids'],
+    title: 'ProductListItemAlternativesBulkCreate'
+} as const;
+
+export const ProductListItemAlternativesBulkCreateResultSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ProductListItemAlternativeDetailPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        created_count: {
+            type: 'integer',
+            title: 'Created Count'
+        },
+        skipped_count: {
+            type: 'integer',
+            title: 'Skipped Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'created_count', 'skipped_count'],
+    title: 'ProductListItemAlternativesBulkCreateResult'
+} as const;
+
 export const ProductListItemCreateSchema = {
     properties: {
         product_id: {
@@ -449,6 +532,13 @@ export const ProductListItemDetailPublicSchema = {
         },
         product: {
             '$ref': '#/components/schemas/ProductPublic'
+        },
+        alternatives: {
+            items: {
+                '$ref': '#/components/schemas/ProductListItemAlternativeDetailPublic'
+            },
+            type: 'array',
+            title: 'Alternatives'
         }
     },
     type: 'object',
@@ -1196,6 +1286,65 @@ export const RetailerPublicSchema = {
     type: 'object',
     required: ['name', 'id'],
     title: 'RetailerPublic'
+} as const;
+
+export const SimilarProductPublicSchema = {
+    properties: {
+        product: {
+            '$ref': '#/components/schemas/ProductPublic'
+        },
+        retailers: {
+            items: {
+                '$ref': '#/components/schemas/RetailerPublic'
+            },
+            type: 'array',
+            title: 'Retailers'
+        },
+        latest_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latest Price Eur'
+        },
+        average_price_eur: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Average Price Eur'
+        },
+        latest_observed_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latest Observed Date'
+        },
+        score: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Score'
+        }
+    },
+    type: 'object',
+    required: ['product', 'retailers', 'latest_price_eur', 'average_price_eur', 'latest_observed_date', 'score'],
+    title: 'SimilarProductPublic'
 } as const;
 
 export const StorePublicSchema = {

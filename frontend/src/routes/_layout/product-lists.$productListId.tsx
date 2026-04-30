@@ -27,11 +27,13 @@ import {
 } from "recharts"
 
 import {
+  type ProductListItemAlternativeDetailPublic,
   type ProductListItemDetailPublic,
   type ProductListRetailerPriceHistoryPoint,
   ProductListsService,
   type ProductPublic,
   ProductsService,
+  type SimilarProductPublic,
 } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,6 +44,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
@@ -189,7 +192,56 @@ function ProductListDetailPage() {
         </CardContent>
       </Card>
 
-      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Products in this list</CardTitle>
+            <CardDescription>
+              Pick acceptable alternatives directly under each product.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {itemsQuery.isPending && (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    className="h-32 animate-pulse rounded-2xl border bg-background/60"
+                    key={index}
+                  />
+                ))}
+              </div>
+            )}
+
+            {itemsQuery.isError && (
+              <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
+                Could not load list items.
+              </div>
+            )}
+
+            {!itemsQuery.isPending &&
+              !itemsQuery.isError &&
+              items.length === 0 && (
+                <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-2xl border bg-background/60 p-6 text-center">
+                  <ListPlus className="size-10 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">No products yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Use the product picker below to add your first product.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+            {!itemsQuery.isPending && items.length > 0 && (
+              <div className="space-y-4">
+                {items.map((item) => (
+                  <ProductListItemRow key={item.id} item={item} />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Add products</CardTitle>
@@ -210,7 +262,7 @@ function ProductListDetailPage() {
             </div>
 
             {debouncedSearch.length === 0 && (
-              <div className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-2xl border bg-background/60 p-6 text-center">
+              <div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border bg-background/60 p-6 text-center">
                 <PackageSearch className="size-10 text-muted-foreground" />
                 <div>
                   <p className="font-medium">Search for a product</p>
@@ -247,7 +299,7 @@ function ProductListDetailPage() {
               )}
 
             {!productsQuery.isPending && products.length > 0 && (
-              <div className="space-y-3">
+              <div className="grid gap-3 lg:grid-cols-2">
                 {products.map((product) => (
                   <ProductSearchRow
                     isAlreadyAdded={existingProductIds.has(product.id)}
@@ -255,55 +307,6 @@ function ProductListDetailPage() {
                     product={product}
                     productListId={productList.id}
                   />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Products in this list</CardTitle>
-            <CardDescription>
-              Adjust quantities or remove products from the basket.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {itemsQuery.isPending && (
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    className="h-24 animate-pulse rounded-2xl border bg-background/60"
-                    key={index}
-                  />
-                ))}
-              </div>
-            )}
-
-            {itemsQuery.isError && (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
-                Could not load list items.
-              </div>
-            )}
-
-            {!itemsQuery.isPending &&
-              !itemsQuery.isError &&
-              items.length === 0 && (
-                <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-2xl border bg-background/60 p-6 text-center">
-                  <ListPlus className="size-10 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">No products yet</p>
-                    <p className="text-sm text-muted-foreground">
-                      Search on the left to add your first product.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-            {!itemsQuery.isPending && items.length > 0 && (
-              <div className="space-y-3">
-                {items.map((item) => (
-                  <ProductListItemRow key={item.id} item={item} />
                 ))}
               </div>
             )}
@@ -678,18 +681,298 @@ function ProductListItemRow({ item }: ProductListItemRowProps) {
           Save
         </LoadingButton>
       </div>
+      <ProductListItemAlternatives item={item} />
     </div>
+  )
+}
+
+type ProductListItemAlternativesProps = {
+  item: ProductListItemDetailPublic
+}
+
+function ProductListItemAlternatives({
+  item,
+}: ProductListItemAlternativesProps) {
+  const queryClient = useQueryClient()
+  const { showErrorToast, showSuccessToast } = useCustomToast()
+  const alternatives = item.alternatives ?? []
+  const alternativeByProductId = useMemo(
+    () =>
+      new Map(
+        alternatives.map((alternative) => [
+          alternative.product_id,
+          alternative,
+        ]),
+      ),
+    [alternatives],
+  )
+
+  const similarProductsQuery = useQuery({
+    queryKey: ["products", item.product_id, "similar", "product-list-item"],
+    queryFn: () =>
+      ProductsService.readSimilarProducts({
+        productId: item.product_id,
+        limit: 10,
+      }),
+  })
+
+  const bulkCreateMutation = useMutation({
+    mutationFn: (productIds: Array<string>) =>
+      ProductListsService.bulkCreateProductListItemAlternatives({
+        itemId: item.id,
+        productListId: item.product_list_id,
+        requestBody: {
+          product_ids: productIds,
+        },
+      }),
+    onError: () => {
+      showErrorToast("Could not add alternatives.")
+    },
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["product-lists", item.product_list_id, "items"],
+      })
+      if (result.created_count > 0) {
+        showSuccessToast(`Added ${result.created_count} alternatives.`)
+      }
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (alternative: ProductListItemAlternativeDetailPublic) =>
+      ProductListsService.deleteProductListItemAlternative({
+        alternativeId: alternative.id,
+        itemId: item.id,
+        productListId: item.product_list_id,
+      }),
+    onError: () => {
+      showErrorToast("Could not remove alternative.")
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["product-lists", item.product_list_id, "items"],
+      })
+      showSuccessToast("Alternative removed.")
+    },
+  })
+
+  const deleteManyMutation = useMutation({
+    mutationFn: (
+      selectedAlternatives: Array<ProductListItemAlternativeDetailPublic>,
+    ) =>
+      Promise.all(
+        selectedAlternatives.map((alternative) =>
+          ProductListsService.deleteProductListItemAlternative({
+            alternativeId: alternative.id,
+            itemId: item.id,
+            productListId: item.product_list_id,
+          }),
+        ),
+      ),
+    onError: () => {
+      showErrorToast("Could not remove alternatives.")
+    },
+    onSuccess: async (_result, selectedAlternatives) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["product-lists", item.product_list_id, "items"],
+      })
+      showSuccessToast(`Removed ${selectedAlternatives.length} alternatives.`)
+    },
+  })
+
+  const candidates = similarProductsQuery.data ?? []
+  const candidateProductIds = candidates.map(
+    (candidate) => candidate.product.id,
+  )
+  const selectedCandidateAlternatives = candidateProductIds
+    .map((productId) => alternativeByProductId.get(productId))
+    .filter(
+      (alternative): alternative is ProductListItemAlternativeDetailPublic =>
+        alternative !== undefined,
+    )
+  const areAllCandidatesSelected =
+    candidateProductIds.length > 0 &&
+    candidateProductIds.every((productId) =>
+      alternativeByProductId.has(productId),
+    )
+  const isChangingAlternatives =
+    bulkCreateMutation.isPending ||
+    deleteMutation.isPending ||
+    deleteManyMutation.isPending
+
+  function setProductSelected(productId: string, checked: boolean) {
+    if (checked) {
+      bulkCreateMutation.mutate([productId])
+      return
+    }
+
+    const alternative = alternativeByProductId.get(productId)
+    if (alternative) {
+      deleteMutation.mutate(alternative)
+    }
+  }
+
+  function setAllCandidatesSelected(checked: boolean) {
+    if (checked) {
+      const newProductIds = candidateProductIds.filter(
+        (productId) => !alternativeByProductId.has(productId),
+      )
+      if (newProductIds.length > 0) {
+        bulkCreateMutation.mutate(newProductIds)
+      }
+      return
+    }
+
+    if (selectedCandidateAlternatives.length > 0) {
+      deleteManyMutation.mutate(selectedCandidateAlternatives)
+    }
+  }
+
+  return (
+    <div className="space-y-3 border-t pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">Alternatives</p>
+          <p className="text-xs text-muted-foreground">
+            Check similar products that are acceptable substitutes.
+          </p>
+        </div>
+        <label
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+          htmlFor={`alternatives-all-${item.id}`}
+        >
+          <Checkbox
+            checked={areAllCandidatesSelected}
+            disabled={
+              candidateProductIds.length === 0 || isChangingAlternatives
+            }
+            id={`alternatives-all-${item.id}`}
+            onCheckedChange={(checked) =>
+              setAllCandidatesSelected(checked === true)
+            }
+          />
+          Use all available alternatives
+        </label>
+      </div>
+
+      {similarProductsQuery.isPending && (
+        <div className="grid gap-2 md:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              className="h-20 animate-pulse rounded-2xl border bg-background/60"
+              key={index}
+            />
+          ))}
+        </div>
+      )}
+
+      {similarProductsQuery.isError && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
+          Could not load similar products.
+        </div>
+      )}
+
+      {!similarProductsQuery.isPending &&
+        !similarProductsQuery.isError &&
+        candidates.length === 0 && (
+          <div className="rounded-2xl border bg-background/60 p-4 text-sm text-muted-foreground">
+            No similar products found.
+          </div>
+        )}
+
+      {candidates.length > 0 && (
+        <div className="grid gap-2 md:grid-cols-2">
+          {candidates.map((candidate) => (
+            <AlternativeCandidateRow
+              candidate={candidate}
+              checked={alternativeByProductId.has(candidate.product.id)}
+              disabled={isChangingAlternatives}
+              key={candidate.product.id}
+              onCheckedChange={(checked) =>
+                setProductSelected(candidate.product.id, checked)
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      {alternatives.length > selectedCandidateAlternatives.length && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {alternatives
+            .filter(
+              (alternative) =>
+                !candidateProductIds.includes(alternative.product_id),
+            )
+            .map((alternative) => (
+              <Badge
+                className="max-w-full truncate"
+                key={alternative.id}
+                variant="outline"
+              >
+                {alternative.product.name}
+              </Badge>
+            ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type AlternativeCandidateRowProps = {
+  candidate: SimilarProductPublic
+  checked: boolean
+  disabled: boolean
+  onCheckedChange: (checked: boolean) => void
+}
+
+function AlternativeCandidateRow({
+  candidate,
+  checked,
+  disabled,
+  onCheckedChange,
+}: AlternativeCandidateRowProps) {
+  return (
+    <label
+      className="grid cursor-pointer gap-3 rounded-2xl border bg-background/60 p-3 transition-colors hover:bg-background/80 sm:grid-cols-[auto_1fr] sm:items-start"
+      htmlFor={`alternative-${candidate.product.id}`}
+    >
+      <Checkbox
+        checked={checked}
+        disabled={disabled}
+        id={`alternative-${candidate.product.id}`}
+        onCheckedChange={(nextChecked) => onCheckedChange(nextChecked === true)}
+      />
+      <div className="min-w-0 space-y-2">
+        <ProductSummary product={candidate.product} variant="compact" />
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          {candidate.latest_price_eur && (
+            <Badge variant="secondary">
+              {formatCurrencyValue(candidate.latest_price_eur)}
+            </Badge>
+          )}
+          <Badge variant="outline">
+            Score {Number(candidate.score).toFixed(2)}
+          </Badge>
+          {checked && <Badge variant="secondary">Selected</Badge>}
+        </div>
+      </div>
+    </label>
   )
 }
 
 type ProductSummaryProps = {
   product: ProductPublic
+  variant?: "default" | "compact"
 }
 
-function ProductSummary({ product }: ProductSummaryProps) {
+function ProductSummary({ product, variant = "default" }: ProductSummaryProps) {
+  const imageSizeClass = variant === "compact" ? "size-11" : "size-14"
+
   return (
     <div className="flex min-w-0 gap-3">
-      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-muted/40">
+      <div
+        className={`${imageSizeClass} flex shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-muted/40`}
+      >
         {product.image_url ? (
           <img
             alt={product.name}
@@ -703,7 +986,7 @@ function ProductSummary({ product }: ProductSummaryProps) {
       </div>
       <div className="min-w-0 space-y-1">
         <Link
-          className="line-clamp-2 font-medium hover:text-primary"
+          className={`${variant === "compact" ? "text-sm" : ""} line-clamp-2 font-medium hover:text-primary`}
           params={{ productId: product.id }}
           to="/products/$productId"
         >

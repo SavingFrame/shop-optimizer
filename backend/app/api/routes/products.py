@@ -13,6 +13,7 @@ from app.models.product import Product, ProductPublic, ProductsPublic
 from app.models.product_alias import ProductAlias
 from app.models.retailer import Retailer, RetailerPublic
 from app.models.store import StorePublic
+from app.services.product_similarity import product_similarity_service
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -90,21 +91,24 @@ def read_products(
             data=serialize_products_with_latest_price(rows),
         )
 
-    search_pattern = f"%{search}%"
+    normalized_search = search.lower()
+    normalized_search_pattern = f"%{normalized_search}%"
+    alias_name = func.lower(ProductAlias.alias_name)
+    normalized_alias_name = func.lower(ProductAlias.normalized_alias_name)
     alias_search_filter = or_(
         ProductAlias.retailer_product_code == search,
-        ProductAlias.alias_name.ilike(search_pattern),
-        ProductAlias.normalized_alias_name.ilike(search_pattern),
-        ProductAlias.alias_name.op("%")(search),
-        ProductAlias.normalized_alias_name.op("%")(search),
+        alias_name.like(normalized_search_pattern),
+        normalized_alias_name.like(normalized_search_pattern),
+        alias_name.op("%")(normalized_search),
+        normalized_alias_name.op("%")(normalized_search),
     )
     alias_similarity_score = func.greatest(
-        func.similarity(func.coalesce(ProductAlias.alias_name, ""), search),
-        func.word_similarity(search, func.coalesce(ProductAlias.alias_name, "")),
-        func.similarity(func.coalesce(ProductAlias.normalized_alias_name, ""), search),
-        func.word_similarity(
-            search,
-            func.coalesce(ProductAlias.normalized_alias_name, ""),
+        func.coalesce(func.similarity(alias_name, normalized_search), 0),
+        func.coalesce(func.word_similarity(normalized_search, alias_name), 0),
+        func.coalesce(func.similarity(normalized_alias_name, normalized_search), 0),
+        func.coalesce(
+            func.word_similarity(normalized_search, normalized_alias_name),
+            0,
         ),
     )
     alias_scores = (
@@ -116,20 +120,23 @@ def read_products(
         .group_by(ProductAlias.product_id)
         .cte("alias_scores")
     )
+    product_name = func.lower(Product.name)
+    product_brand = func.lower(Product.brand)
+    product_category = func.lower(Product.category)
     product_search_filter = or_(
         Product.barcode == search,
-        Product.name.ilike(search_pattern),
-        Product.brand.ilike(search_pattern),
-        Product.category.ilike(search_pattern),
-        Product.name.op("%")(search),
-        Product.brand.op("%")(search),
-        Product.category.op("%")(search),
+        product_name.like(normalized_search_pattern),
+        product_brand.like(normalized_search_pattern),
+        product_category.like(normalized_search_pattern),
+        product_name.op("%")(normalized_search),
+        product_brand.op("%")(normalized_search),
+        product_category.op("%")(normalized_search),
         alias_scores.c.product_id.is_not(None),
     )
     similarity_score = func.greatest(
-        func.similarity(func.coalesce(Product.name, ""), search),
-        func.similarity(func.coalesce(Product.brand, ""), search),
-        func.similarity(func.coalesce(Product.category, ""), search),
+        func.coalesce(func.similarity(product_name, normalized_search), 0),
+        func.coalesce(func.similarity(product_brand, normalized_search), 0),
+        func.coalesce(func.similarity(product_category, normalized_search), 0),
         func.coalesce(alias_scores.c.alias_score, 0),
     )
     has_image = (Product.image_url.is_not(None)) & (Product.image_url != "")
@@ -219,6 +226,43 @@ class RetailerDailyRetailPriceHistoryPoint(SQLModel):
     min_price_eur: Decimal | None
     max_price_eur: Decimal | None
     has_special_sale: bool
+
+
+class SimilarProductPublic(SQLModel):
+    product: ProductPublic
+    retailers: list[RetailerPublic]
+    latest_price_eur: Decimal | None
+    average_price_eur: Decimal | None
+    latest_observed_date: date | None
+    score: Decimal
+
+
+@router.get("/{product_id}/similar", response_model=list[SimilarProductPublic])
+def read_similar_products(
+    product_id: uuid.UUID,
+    session: SessionDep,
+    limit: int = 20,
+):
+    product = session.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    limit = max(1, min(limit, 50))
+    return [
+        SimilarProductPublic(
+            product=ProductPublic.model_validate(candidate.product),
+            retailers=candidate.retailers,
+            latest_price_eur=candidate.latest_price_eur,
+            average_price_eur=candidate.average_price_eur,
+            latest_observed_date=candidate.latest_observed_date,
+            score=candidate.score,
+        )
+        for candidate in product_similarity_service.find_similar_products(
+            session=session,
+            product_id=product_id,
+            limit=limit,
+        )
+    ]
 
 
 @router.get(

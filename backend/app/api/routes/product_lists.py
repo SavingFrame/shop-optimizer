@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import true
-from sqlmodel import SQLModel, delete, func, select
+from sqlmodel import Field, SQLModel, delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models.common import get_datetime_utc
@@ -14,6 +14,10 @@ from app.models.product_list import (
     ProductList,
     ProductListBase,
     ProductListItem,
+    ProductListItemAlternative,
+    ProductListItemAlternativeCreate,
+    ProductListItemAlternativePublic,
+    ProductListItemAlternativesBulkCreate,
     ProductListItemPublic,
     ProductListPublic,
     ProductListsPublic,
@@ -42,8 +46,21 @@ class ProductListItemUpdate(SQLModel):
     note: str | None = None
 
 
+class ProductListItemAlternativeDetailPublic(ProductListItemAlternativePublic):
+    product: ProductPublic
+
+
 class ProductListItemDetailPublic(ProductListItemPublic):
     product: ProductPublic
+    alternatives: list[ProductListItemAlternativeDetailPublic] = Field(
+        default_factory=list
+    )
+
+
+class ProductListItemAlternativesBulkCreateResult(SQLModel):
+    data: list[ProductListItemAlternativeDetailPublic]
+    created_count: int
+    skipped_count: int
 
 
 class ProductListRetailerPriceHistoryPoint(SQLModel):
@@ -268,12 +285,8 @@ def product_list_retail_price_history_chart(
         .subquery("daily_obs")
     )
 
-    retailers_sq = (
-        select(daily_obs.c.retailer_id).distinct().subquery("retailers")
-    )
-    sample_dates = (
-        select(daily_obs.c.observed_date).distinct().subquery("sample_dates")
-    )
+    retailers_sq = select(daily_obs.c.retailer_id).distinct().subquery("retailers")
+    sample_dates = select(daily_obs.c.observed_date).distinct().subquery("sample_dates")
 
     grid = (
         select(
@@ -315,9 +328,9 @@ def product_list_retail_price_history_chart(
         select(
             Retailer,
             grid.c.observed_date,
-            func.coalesce(
-                func.sum(latest.c.price_eur * grid.c.quantity), 0
-            ).label("total_price_eur"),
+            func.coalesce(func.sum(latest.c.price_eur * grid.c.quantity), 0).label(
+                "total_price_eur"
+            ),
             func.count(latest.c.price_eur).label("matched_item_count"),
             func.bool_or(latest.c.is_special_sale).label("has_special_sale"),
         )
@@ -438,7 +451,159 @@ def delete_product_list_item(
 ) -> None:
     product_list = _get_user_product_list(session, current_user.id, product_list_id)
     item = _get_product_list_item(session, product_list.id, item_id)
+    session.exec(
+        delete(ProductListItemAlternative).where(
+            ProductListItemAlternative.product_list_item_id == item.id,
+        ),
+    )
     session.delete(item)
+    session.commit()
+
+
+@router.get(
+    "/{product_list_id}/items/{item_id}/alternatives",
+    response_model=list[ProductListItemAlternativeDetailPublic],
+)
+def read_product_list_item_alternatives(
+    product_list_id: uuid.UUID,
+    item_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[ProductListItemAlternative]:
+    product_list = _get_user_product_list(session, current_user.id, product_list_id)
+    item = _get_product_list_item(session, product_list.id, item_id)
+    return _get_product_list_item_alternatives(session, item.id)
+
+
+@router.post(
+    "/{product_list_id}/items/{item_id}/alternatives",
+    response_model=ProductListItemAlternativeDetailPublic,
+)
+def create_product_list_item_alternative(
+    product_list_id: uuid.UUID,
+    item_id: uuid.UUID,
+    alternative_in: ProductListItemAlternativeCreate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> ProductListItemAlternative:
+    product_list = _get_user_product_list(session, current_user.id, product_list_id)
+    item = _get_product_list_item(session, product_list.id, item_id)
+    product = session.get(Product, alternative_in.product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if product.id == item.product_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Primary product cannot be added as an alternative",
+        )
+
+    existing_alternative = session.exec(
+        select(ProductListItemAlternative).where(
+            ProductListItemAlternative.product_list_item_id == item.id,
+            ProductListItemAlternative.product_id == product.id,
+        ),
+    ).first()
+    if existing_alternative is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Product is already an alternative for this item",
+        )
+
+    alternative = ProductListItemAlternative(
+        product_list_item_id=item.id,
+        product_id=product.id,
+    )
+    session.add(alternative)
+    session.commit()
+    session.refresh(alternative)
+    return alternative
+
+
+@router.post(
+    "/{product_list_id}/items/{item_id}/alternatives/bulk",
+    response_model=ProductListItemAlternativesBulkCreateResult,
+)
+def bulk_create_product_list_item_alternatives(
+    product_list_id: uuid.UUID,
+    item_id: uuid.UUID,
+    alternatives_in: ProductListItemAlternativesBulkCreate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> ProductListItemAlternativesBulkCreateResult:
+    product_list = _get_user_product_list(session, current_user.id, product_list_id)
+    item = _get_product_list_item(session, product_list.id, item_id)
+
+    requested_product_ids = list(dict.fromkeys(alternatives_in.product_ids))
+    if not requested_product_ids:
+        return ProductListItemAlternativesBulkCreateResult(
+            data=_get_product_list_item_alternatives(session, item.id),
+            created_count=0,
+            skipped_count=0,
+        )
+
+    existing_product_ids = set(
+        session.exec(
+            select(Product.id).where(Product.id.in_(requested_product_ids)),
+        ).all(),
+    )
+    missing_product_ids = set(requested_product_ids) - existing_product_ids
+    if missing_product_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or more products were not found",
+        )
+
+    existing_alternative_product_ids = set(
+        session.exec(
+            select(ProductListItemAlternative.product_id).where(
+                ProductListItemAlternative.product_list_item_id == item.id,
+                ProductListItemAlternative.product_id.in_(requested_product_ids),
+            ),
+        ).all(),
+    )
+    product_ids_to_create = [
+        product_id
+        for product_id in requested_product_ids
+        if product_id != item.product_id
+        and product_id not in existing_alternative_product_ids
+    ]
+
+    for product_id in product_ids_to_create:
+        session.add(
+            ProductListItemAlternative(
+                product_list_item_id=item.id,
+                product_id=product_id,
+            ),
+        )
+
+    session.commit()
+
+    return ProductListItemAlternativesBulkCreateResult(
+        data=_get_product_list_item_alternatives(session, item.id),
+        created_count=len(product_ids_to_create),
+        skipped_count=len(requested_product_ids) - len(product_ids_to_create),
+    )
+
+
+@router.delete(
+    "/{product_list_id}/items/{item_id}/alternatives/{alternative_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_product_list_item_alternative(
+    product_list_id: uuid.UUID,
+    item_id: uuid.UUID,
+    alternative_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> None:
+    product_list = _get_user_product_list(session, current_user.id, product_list_id)
+    item = _get_product_list_item(session, product_list.id, item_id)
+    alternative = _get_product_list_item_alternative(
+        session,
+        item.id,
+        alternative_id,
+    )
+    session.delete(alternative)
     session.commit()
 
 
@@ -472,6 +637,41 @@ def _get_product_list_item(
     if item is None:
         raise HTTPException(status_code=404, detail="Product list item not found")
     return item
+
+
+def _get_product_list_item_alternative(
+    session: SessionDep,
+    product_list_item_id: uuid.UUID,
+    alternative_id: uuid.UUID,
+) -> ProductListItemAlternative:
+    alternative = session.exec(
+        select(ProductListItemAlternative).where(
+            ProductListItemAlternative.id == alternative_id,
+            ProductListItemAlternative.product_list_item_id == product_list_item_id,
+        ),
+    ).first()
+    if alternative is None:
+        raise HTTPException(
+            status_code=404, detail="Product list item alternative not found"
+        )
+    return alternative
+
+
+def _get_product_list_item_alternatives(
+    session: SessionDep,
+    product_list_item_id: uuid.UUID,
+) -> list[ProductListItemAlternative]:
+    return list(
+        session.exec(
+            select(ProductListItemAlternative)
+            .where(
+                ProductListItemAlternative.product_list_item_id == product_list_item_id
+            )
+            .order_by(
+                ProductListItemAlternative.created_at, ProductListItemAlternative.id
+            ),
+        ).all()
+    )
 
 
 def _get_product_list_items(

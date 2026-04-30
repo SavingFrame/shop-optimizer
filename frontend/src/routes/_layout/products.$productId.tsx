@@ -7,6 +7,7 @@ import {
   ImageIcon,
   type LucideIcon,
   PackageOpen,
+  PackageSearch,
   Ruler,
   Store,
   Tags,
@@ -27,6 +28,7 @@ import {
   ProductsService,
   type RetailerDailyRetailPriceHistoryPoint,
   type RetailerPriceObservationSummary,
+  type SimilarProductPublic,
 } from "@/client"
 import { AddProductToListDialog } from "@/components/ProductLists/AddProductToListDialog"
 import { Badge } from "@/components/ui/badge"
@@ -75,6 +77,12 @@ function ProductDetailPage() {
     queryKey: ["products", productId, "price-history", "retail", "chart"],
     queryFn: () =>
       ProductsService.productDailyRetailPriceHistoryChart({ productId }),
+  })
+
+  const similarProductsQuery = useQuery({
+    queryKey: ["products", productId, "similar"],
+    queryFn: () =>
+      ProductsService.readSimilarProducts({ productId, limit: 12 }),
   })
 
   const product = productQuery.data
@@ -174,6 +182,23 @@ function ProductDetailPage() {
           </CardContent>
         </Card>
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Similar products</CardTitle>
+          <CardDescription>
+            Suggested alternatives from the catalog when the exact barcode is
+            not enough for comparing retailers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SimilarProducts
+            isError={similarProductsQuery.isError}
+            isPending={similarProductsQuery.isPending}
+            products={similarProductsQuery.data ?? []}
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -234,6 +259,137 @@ function ProductHero({ pricesCount, product }: ProductHeroProps) {
         </CardContent>
       </Card>
     </section>
+  )
+}
+
+type SimilarProductsProps = {
+  isError: boolean
+  isPending: boolean
+  products: Array<SimilarProductPublic>
+}
+
+function SimilarProducts({
+  isError,
+  isPending,
+  products,
+}: SimilarProductsProps) {
+  if (isPending) {
+    return (
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div
+            className="h-40 animate-pulse rounded-2xl border bg-background/60"
+            key={index}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
+        Could not load similar products.
+      </div>
+    )
+  }
+
+  if (products.length === 0) {
+    return (
+      <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-2xl border bg-background/60 p-6 text-center">
+        <PackageSearch className="size-10 text-muted-foreground" />
+        <div>
+          <p className="font-medium">No similar products found</p>
+          <p className="text-sm text-muted-foreground">
+            Try searching the product catalog manually for alternatives.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {products.map((candidate) => (
+        <SimilarProductCard candidate={candidate} key={candidate.product.id} />
+      ))}
+    </div>
+  )
+}
+
+type SimilarProductCardProps = {
+  candidate: SimilarProductPublic
+}
+
+function SimilarProductCard({ candidate }: SimilarProductCardProps) {
+  const retailers = candidate.retailers
+    .map((retailer) => retailer.name)
+    .join(", ")
+
+  return (
+    <Link
+      className="flex gap-4 rounded-2xl border bg-background/60 p-4 transition-colors hover:border-primary/40 hover:bg-background"
+      params={{ productId: candidate.product.id }}
+      to="/products/$productId"
+    >
+      <SimilarProductImage
+        imageUrl={candidate.product.image_url}
+        name={candidate.product.name}
+      />
+      <div className="min-w-0 flex-1 space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {candidate.product.category && (
+            <Badge variant="secondary">{candidate.product.category}</Badge>
+          )}
+          {candidate.product.brand && (
+            <Badge variant="outline">{candidate.product.brand}</Badge>
+          )}
+        </div>
+        <div className="space-y-1">
+          <p className="line-clamp-2 font-semibold">{candidate.product.name}</p>
+          <p className="line-clamp-1 text-sm text-muted-foreground">
+            {retailers || "No retailer data"}
+          </p>
+        </div>
+        <div className="text-sm">
+          <span className="text-muted-foreground">Latest price </span>
+          <span className="font-semibold">
+            {candidate.latest_price_eur
+              ? formatCurrency(candidate.latest_price_eur)
+              : "Not available"}
+          </span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+type SimilarProductImageProps = {
+  imageUrl?: string | null
+  name: string
+}
+
+function SimilarProductImage({ imageUrl, name }: SimilarProductImageProps) {
+  const [hasError, setHasError] = useState(false)
+
+  if (imageUrl && !hasError) {
+    return (
+      <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted/40">
+        <img
+          alt={name}
+          className="h-full w-full object-contain p-2"
+          loading="lazy"
+          onError={() => setHasError(true)}
+          src={imageUrl}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex size-24 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-background text-primary">
+      <ImageIcon className="size-8" />
+    </div>
   )
 }
 

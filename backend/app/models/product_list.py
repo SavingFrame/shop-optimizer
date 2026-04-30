@@ -98,6 +98,36 @@ class ProductListItem(ProductListItemBase, table=True):
 
     product_list: "ProductList" = Relationship(back_populates="items")
     product: "Product" = Relationship(back_populates="product_list_items")
+    alternatives: list["ProductListItemAlternative"] = Relationship(
+        back_populates="product_list_item",
+    )
+
+
+class ProductListItemAlternativeBase(SQLModel):
+    product_list_item_id: uuid.UUID = Field(
+        foreign_key="productlistitem.id",
+        index=True,
+    )
+    product_id: uuid.UUID = Field(foreign_key="product.id", index=True)
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
+class ProductListItemAlternative(ProductListItemAlternativeBase, table=True):
+    __table_args__ = (
+        UniqueConstraint(
+            "product_list_item_id",
+            "product_id",
+            name="uq_product_list_item_alternative_product",
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+
+    product_list_item: "ProductListItem" = Relationship(back_populates="alternatives")
+    product: "Product" = Relationship(back_populates="product_list_item_alternatives")
 
 
 class ProductListItemCreate(ProductListItemBase):
@@ -105,6 +135,18 @@ class ProductListItemCreate(ProductListItemBase):
 
 
 class ProductListItemPublic(ProductListItemBase):
+    id: uuid.UUID
+
+
+class ProductListItemAlternativeCreate(SQLModel):
+    product_id: uuid.UUID
+
+
+class ProductListItemAlternativesBulkCreate(SQLModel):
+    product_ids: list[uuid.UUID]
+
+
+class ProductListItemAlternativePublic(ProductListItemAlternativeBase):
     id: uuid.UUID
 
 

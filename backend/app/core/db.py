@@ -5,7 +5,11 @@ from app.core.config import settings
 from app.models.price_observation import PriceObservation  # noqa: F401
 from app.models.product import Product  # noqa: F401
 from app.models.product_alias import ProductAlias  # noqa: F401
-from app.models.product_list import ProductList, ProductListItem  # noqa: F401
+from app.models.product_list import (  # noqa: F401
+    ProductList,
+    ProductListItem,
+    ProductListItemAlternative,
+)
 from app.models.retailer import ReailerEnum, Retailer  # noqa: F401
 from app.models.store import Store  # noqa: F401
 from app.models.user import User, UserCreate

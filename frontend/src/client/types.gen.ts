@@ -101,6 +101,28 @@ export type ProductListBase = {
     description?: (string | null);
 };
 
+export type ProductListItemAlternativeCreate = {
+    product_id: string;
+};
+
+export type ProductListItemAlternativeDetailPublic = {
+    product_list_item_id: string;
+    product_id: string;
+    created_at?: string;
+    id: string;
+    product: ProductPublic;
+};
+
+export type ProductListItemAlternativesBulkCreate = {
+    product_ids: Array<(string)>;
+};
+
+export type ProductListItemAlternativesBulkCreateResult = {
+    data: Array<ProductListItemAlternativeDetailPublic>;
+    created_count: number;
+    skipped_count: number;
+};
+
 export type ProductListItemCreate = {
     product_id: string;
     quantity?: (number | string);
@@ -122,6 +144,7 @@ export type ProductListItemDetailPublic = {
     updated_at?: string;
     id: string;
     product: ProductPublic;
+    alternatives?: Array<ProductListItemAlternativeDetailPublic>;
 };
 
 export type ProductListItemUpdate = {
@@ -320,6 +343,15 @@ export type RetailerPublic = {
     id: string;
 };
 
+export type SimilarProductPublic = {
+    product: ProductPublic;
+    retailers: Array<RetailerPublic>;
+    latest_price_eur: (string | null);
+    average_price_eur: (string | null);
+    latest_observed_date: (string | null);
+    score: string;
+};
+
 export type StorePublic = {
     retailer_id: string;
     /**
@@ -509,6 +541,37 @@ export type ProductListsDeleteProductListItemData = {
 
 export type ProductListsDeleteProductListItemResponse = (void);
 
+export type ProductListsReadProductListItemAlternativesData = {
+    itemId: string;
+    productListId: string;
+};
+
+export type ProductListsReadProductListItemAlternativesResponse = (Array<ProductListItemAlternativeDetailPublic>);
+
+export type ProductListsCreateProductListItemAlternativeData = {
+    itemId: string;
+    productListId: string;
+    requestBody: ProductListItemAlternativeCreate;
+};
+
+export type ProductListsCreateProductListItemAlternativeResponse = (ProductListItemAlternativeDetailPublic);
+
+export type ProductListsBulkCreateProductListItemAlternativesData = {
+    itemId: string;
+    productListId: string;
+    requestBody: ProductListItemAlternativesBulkCreate;
+};
+
+export type ProductListsBulkCreateProductListItemAlternativesResponse = (ProductListItemAlternativesBulkCreateResult);
+
+export type ProductListsDeleteProductListItemAlternativeData = {
+    alternativeId: string;
+    itemId: string;
+    productListId: string;
+};
+
+export type ProductListsDeleteProductListItemAlternativeResponse = (void);
+
 export type ProductsReadProductsData = {
     limit?: number;
     q?: (string | null);
@@ -522,6 +585,13 @@ export type ProductsReadProductData = {
 };
 
 export type ProductsReadProductResponse = (ProductPublic);
+
+export type ProductsReadSimilarProductsData = {
+    limit?: number;
+    productId: string;
+};
+
+export type ProductsReadSimilarProductsResponse = (Array<SimilarProductPublic>);
 
 export type ProductsProductPriceObservationsData = {
     productId: string;

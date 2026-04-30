@@ -8,7 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from app.models.price_observation import PriceObservation
     from app.models.product_alias import ProductAlias
-    from app.models.product_list import ProductListItem
+    from app.models.product_list import ProductListItem, ProductListItemAlternative
     from app.models.receipt import ReceiptItem
 
 
@@ -65,6 +65,7 @@ class Product(ProductBase, table=True):
     product_list_items: list["ProductListItem"] = Relationship(
         back_populates="product",
     )
+    product_list_item_alternatives: list["ProductListItemAlternative"] = Relationship()
 
 
 class ProductCreate(ProductBase):

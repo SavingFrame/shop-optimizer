@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductListsCreateProductListData, ProductListsCreateProductListResponse, ProductListsReadProductListsData, ProductListsReadProductListsResponse, ProductListsCreateProductListFromReceiptData, ProductListsCreateProductListFromReceiptResponse, ProductListsReadProductListData, ProductListsReadProductListResponse, ProductListsUpdateProductListData, ProductListsUpdateProductListResponse, ProductListsDeleteProductListData, ProductListsDeleteProductListResponse, ProductListsProductListRetailPriceHistoryChartData, ProductListsProductListRetailPriceHistoryChartResponse, ProductListsReadProductListItemsData, ProductListsReadProductListItemsResponse, ProductListsCreateProductListItemData, ProductListsCreateProductListItemResponse, ProductListsUpdateProductListItemData, ProductListsUpdateProductListItemResponse, ProductListsDeleteProductListItemData, ProductListsDeleteProductListItemResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsDeleteReceiptData, ReceiptsDeleteReceiptResponse, ReceiptsReadReceiptItemsData, ReceiptsReadReceiptItemsResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductListsCreateProductListData, ProductListsCreateProductListResponse, ProductListsReadProductListsData, ProductListsReadProductListsResponse, ProductListsCreateProductListFromReceiptData, ProductListsCreateProductListFromReceiptResponse, ProductListsReadProductListData, ProductListsReadProductListResponse, ProductListsUpdateProductListData, ProductListsUpdateProductListResponse, ProductListsDeleteProductListData, ProductListsDeleteProductListResponse, ProductListsProductListRetailPriceHistoryChartData, ProductListsProductListRetailPriceHistoryChartResponse, ProductListsReadProductListItemsData, ProductListsReadProductListItemsResponse, ProductListsCreateProductListItemData, ProductListsCreateProductListItemResponse, ProductListsUpdateProductListItemData, ProductListsUpdateProductListItemResponse, ProductListsDeleteProductListItemData, ProductListsDeleteProductListItemResponse, ProductListsReadProductListItemAlternativesData, ProductListsReadProductListItemAlternativesResponse, ProductListsCreateProductListItemAlternativeData, ProductListsCreateProductListItemAlternativeResponse, ProductListsBulkCreateProductListItemAlternativesData, ProductListsBulkCreateProductListItemAlternativesResponse, ProductListsDeleteProductListItemAlternativeData, ProductListsDeleteProductListItemAlternativeResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsReadSimilarProductsData, ProductsReadSimilarProductsResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsDeleteReceiptData, ReceiptsDeleteReceiptResponse, ReceiptsReadReceiptItemsData, ReceiptsReadReceiptItemsResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class DashboardService {
     /**
@@ -383,6 +383,102 @@ export class ProductListsService {
             }
         });
     }
+    
+    /**
+     * Read Product List Item Alternatives
+     * @param data The data for the request.
+     * @param data.productListId
+     * @param data.itemId
+     * @returns ProductListItemAlternativeDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static readProductListItemAlternatives(data: ProductListsReadProductListItemAlternativesData): CancelablePromise<ProductListsReadProductListItemAlternativesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/product-lists/{product_list_id}/items/{item_id}/alternatives',
+            path: {
+                product_list_id: data.productListId,
+                item_id: data.itemId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Product List Item Alternative
+     * @param data The data for the request.
+     * @param data.productListId
+     * @param data.itemId
+     * @param data.requestBody
+     * @returns ProductListItemAlternativeDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static createProductListItemAlternative(data: ProductListsCreateProductListItemAlternativeData): CancelablePromise<ProductListsCreateProductListItemAlternativeResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/product-lists/{product_list_id}/items/{item_id}/alternatives',
+            path: {
+                product_list_id: data.productListId,
+                item_id: data.itemId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Bulk Create Product List Item Alternatives
+     * @param data The data for the request.
+     * @param data.productListId
+     * @param data.itemId
+     * @param data.requestBody
+     * @returns ProductListItemAlternativesBulkCreateResult Successful Response
+     * @throws ApiError
+     */
+    public static bulkCreateProductListItemAlternatives(data: ProductListsBulkCreateProductListItemAlternativesData): CancelablePromise<ProductListsBulkCreateProductListItemAlternativesResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/product-lists/{product_list_id}/items/{item_id}/alternatives/bulk',
+            path: {
+                product_list_id: data.productListId,
+                item_id: data.itemId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Product List Item Alternative
+     * @param data The data for the request.
+     * @param data.productListId
+     * @param data.itemId
+     * @param data.alternativeId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteProductListItemAlternative(data: ProductListsDeleteProductListItemAlternativeData): CancelablePromise<ProductListsDeleteProductListItemAlternativeResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/product-lists/{product_list_id}/items/{item_id}/alternatives/{alternative_id}',
+            path: {
+                product_list_id: data.productListId,
+                item_id: data.itemId,
+                alternative_id: data.alternativeId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
 }
 
 export class ProductsService {
@@ -423,6 +519,30 @@ export class ProductsService {
             url: '/api/v1/products/{product_id}',
             path: {
                 product_id: data.productId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Similar Products
+     * @param data The data for the request.
+     * @param data.productId
+     * @param data.limit
+     * @returns SimilarProductPublic Successful Response
+     * @throws ApiError
+     */
+    public static readSimilarProducts(data: ProductsReadSimilarProductsData): CancelablePromise<ProductsReadSimilarProductsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/products/{product_id}/similar',
+            path: {
+                product_id: data.productId
+            },
+            query: {
+                limit: data.limit
             },
             errors: {
                 422: 'Validation Error'

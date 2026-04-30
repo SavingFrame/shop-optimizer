@@ -103,11 +103,13 @@ export type ProductListBase = {
 
 export type ProductListItemAlternativeCreate = {
     product_id: string;
+    similarity_score?: (number | string | null);
 };
 
 export type ProductListItemAlternativeDetailPublic = {
     product_list_item_id: string;
     product_id: string;
+    similarity_score?: (string | null);
     created_at?: string;
     id: string;
     product: ProductPublic;
@@ -115,6 +117,7 @@ export type ProductListItemAlternativeDetailPublic = {
 
 export type ProductListItemAlternativesBulkCreate = {
     product_ids: Array<(string)>;
+    similarity_scores?: Record<string, (number | string)>;
 };
 
 export type ProductListItemAlternativesBulkCreateResult = {
@@ -508,6 +511,7 @@ export type ProductListsDeleteProductListData = {
 export type ProductListsDeleteProductListResponse = (void);
 
 export type ProductListsProductListRetailPriceHistoryChartData = {
+    alternativeFallbackOrder?: 'cheapest' | 'similar';
     productListId: string;
 };
 

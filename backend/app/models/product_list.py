@@ -109,6 +109,11 @@ class ProductListItemAlternativeBase(SQLModel):
         index=True,
     )
     product_id: uuid.UUID = Field(foreign_key="product.id", index=True)
+    similarity_score: Decimal | None = Field(
+        default=None,
+        sa_column=Column(Numeric(6, 4), nullable=True),
+        description="Similarity score captured when this alternative was selected.",
+    )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         sa_column=Column(DateTime(timezone=True), nullable=False),
@@ -140,10 +145,12 @@ class ProductListItemPublic(ProductListItemBase):
 
 class ProductListItemAlternativeCreate(SQLModel):
     product_id: uuid.UUID
+    similarity_score: Decimal | None = None
 
 
 class ProductListItemAlternativesBulkCreate(SQLModel):
     product_ids: list[uuid.UUID]
+    similarity_scores: dict[uuid.UUID, Decimal] = Field(default_factory=dict)
 
 
 class ProductListItemAlternativePublic(ProductListItemAlternativeBase):

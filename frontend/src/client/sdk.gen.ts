@@ -278,6 +278,7 @@ export class ProductListsService {
      * Product List Retail Price History Chart
      * @param data The data for the request.
      * @param data.productListId
+     * @param data.alternativeFallbackOrder
      * @returns ProductListRetailerPriceHistoryPoint Successful Response
      * @throws ApiError
      */
@@ -287,6 +288,9 @@ export class ProductListsService {
             url: '/api/v1/product-lists/{product_list_id}/price-history/retail/chart',
             path: {
                 product_list_id: data.productListId
+            },
+            query: {
+                alternative_fallback_order: data.alternativeFallbackOrder
             },
             errors: {
                 422: 'Validation Error'

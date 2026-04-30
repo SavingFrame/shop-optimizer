@@ -1,9 +1,10 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import true
+from sqlalchemy import case, literal, nullslast, true
 from sqlmodel import Field, SQLModel, delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -248,6 +249,7 @@ def product_list_retail_price_history_chart(
     product_list_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
+    alternative_fallback_order: Literal["cheapest", "similar"] = "cheapest",
 ) -> list[ProductListRetailerPriceHistoryPoint]:
     product_list = _get_user_product_list(session, current_user.id, product_list_id)
     total_item_count = session.exec(
@@ -260,26 +262,60 @@ def product_list_retail_price_history_chart(
 
     list_items = (
         select(
-            ProductListItem.product_id.label("product_id"),
+            ProductListItem.id.label("item_id"),
             ProductListItem.quantity.label("quantity"),
         )
         .where(ProductListItem.product_list_id == product_list.id)
         .subquery("list_items")
     )
 
+    primary_candidates = select(
+        ProductListItem.id.label("item_id"),
+        ProductListItem.product_id.label("product_id"),
+        literal(0).label("fallback_rank"),
+        literal(None).label("similarity_score"),
+    ).where(ProductListItem.product_list_id == product_list.id)
+
+    alternative_candidates = (
+        select(
+            ProductListItem.id.label("item_id"),
+            ProductListItemAlternative.product_id.label("product_id"),
+            literal(1).label("fallback_rank"),
+            ProductListItemAlternative.similarity_score.label("similarity_score"),
+        )
+        .join(
+            ProductListItemAlternative,
+            ProductListItemAlternative.product_list_item_id == ProductListItem.id,
+        )
+        .where(ProductListItem.product_list_id == product_list.id)
+    )
+
+    candidate_products = primary_candidates.union_all(alternative_candidates).subquery(
+        "candidate_products"
+    )
+
     daily_obs = (
         select(
             PriceObservation.retailer_id.label("retailer_id"),
+            candidate_products.c.item_id.label("item_id"),
             PriceObservation.product_id.label("product_id"),
+            candidate_products.c.fallback_rank.label("fallback_rank"),
+            candidate_products.c.similarity_score.label("similarity_score"),
             PriceObservation.observed_date.label("observed_date"),
             func.avg(PriceObservation.price_eur).label("price_eur"),
             func.bool_or(PriceObservation.is_special_sale).label("is_special_sale"),
         )
-        .join(list_items, list_items.c.product_id == PriceObservation.product_id)
+        .join(
+            candidate_products,
+            candidate_products.c.product_id == PriceObservation.product_id,
+        )
         .where(PriceObservation.price_eur.is_not(None))
         .group_by(
             PriceObservation.retailer_id,
+            candidate_products.c.item_id,
             PriceObservation.product_id,
+            candidate_products.c.fallback_rank,
+            candidate_products.c.similarity_score,
             PriceObservation.observed_date,
         )
         .subquery("daily_obs")
@@ -291,7 +327,7 @@ def product_list_retail_price_history_chart(
     grid = (
         select(
             retailers_sq.c.retailer_id.label("retailer_id"),
-            list_items.c.product_id.label("product_id"),
+            list_items.c.item_id.label("item_id"),
             list_items.c.quantity.label("quantity"),
             sample_dates.c.observed_date.label("observed_date"),
         )
@@ -301,14 +337,43 @@ def product_list_retail_price_history_chart(
         .subquery("grid")
     )
 
-    # Fill each (retailer, product, date) cell with the nearest-in-time
+    # Fill each (retailer, list item, date) cell with the nearest-in-time
     # observation inside the staleness window so every retailer prices the
-    # full basket on every sampled date — without this, the chart's totals
-    # move with coverage changes, not real price changes. Past observations
-    # are preferred over equally-distant future ones (forward-fill bias),
-    # but future observations are used when no past data exists in the
-    # window — needed for products newly added to a retailer's catalog.
+    # full basket on every sampled date. Primary products are always preferred;
+    # alternatives are only used as a fallback when no primary price is matched.
+    # Past observations are preferred over equally-distant future ones
+    # (forward-fill bias), but future observations are used when no past data
+    # exists in the window, which is needed for products newly added to a
+    # retailer's catalog.
+    min_observed_date = grid.c.observed_date - timedelta(
+        days=PRICE_HISTORY_STALENESS_DAYS,
+    )
+    max_observed_date = grid.c.observed_date + timedelta(
+        days=PRICE_HISTORY_STALENESS_DAYS,
+    )
     date_diff = grid.c.observed_date - daily_obs.c.observed_date
+    primary_date_order = case(
+        (daily_obs.c.fallback_rank == 0, func.abs(date_diff)),
+        else_=0,
+    )
+    alternative_date_order = case(
+        (daily_obs.c.fallback_rank == 1, func.abs(date_diff)),
+        else_=0,
+    )
+    alternative_price_order = case(
+        (daily_obs.c.fallback_rank == 1, daily_obs.c.price_eur),
+        else_=0,
+    )
+    alternative_similarity_order = case(
+        (daily_obs.c.fallback_rank == 1, daily_obs.c.similarity_score),
+        else_=0,
+    )
+    alternative_order_by = (
+        [alternative_price_order.asc(), alternative_date_order.asc()]
+        if alternative_fallback_order == "cheapest"
+        else [nullslast(alternative_similarity_order.desc()), alternative_date_order.asc()]
+    )
+
     latest = (
         select(
             daily_obs.c.price_eur.label("price_eur"),
@@ -316,10 +381,17 @@ def product_list_retail_price_history_chart(
         )
         .where(
             daily_obs.c.retailer_id == grid.c.retailer_id,
-            daily_obs.c.product_id == grid.c.product_id,
-            func.abs(date_diff) <= PRICE_HISTORY_STALENESS_DAYS,
+            daily_obs.c.item_id == grid.c.item_id,
+            daily_obs.c.observed_date >= min_observed_date,
+            daily_obs.c.observed_date <= max_observed_date,
         )
-        .order_by(func.abs(date_diff).asc(), date_diff.desc())
+        .order_by(
+            daily_obs.c.fallback_rank.asc(),
+            primary_date_order.asc(),
+            *alternative_order_by,
+            date_diff.desc(),
+            daily_obs.c.price_eur.asc(),
+        )
         .limit(1)
         .lateral("latest")
     )
@@ -512,6 +584,7 @@ def create_product_list_item_alternative(
     alternative = ProductListItemAlternative(
         product_list_item_id=item.id,
         product_id=product.id,
+        similarity_score=alternative_in.similarity_score,
     )
     session.add(alternative)
     session.commit()
@@ -573,6 +646,7 @@ def bulk_create_product_list_item_alternatives(
             ProductListItemAlternative(
                 product_list_item_id=item.id,
                 product_id=product_id,
+                similarity_score=alternatives_in.similarity_scores.get(product_id),
             ),
         )
 

@@ -48,6 +48,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/product-lists/$productListId")({
@@ -61,10 +68,14 @@ export const Route = createFileRoute("/_layout/product-lists/$productListId")({
   }),
 })
 
+type AlternativeFallbackOrder = "cheapest" | "similar"
+
 function ProductListDetailPage() {
   const { productListId } = Route.useParams()
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [alternativeFallbackOrder, setAlternativeFallbackOrder] =
+    useState<AlternativeFallbackOrder>("cheapest")
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -91,9 +102,13 @@ function ProductListDetailPage() {
       "price-history",
       "retail",
       "chart",
+      alternativeFallbackOrder,
     ],
     queryFn: () =>
-      ProductListsService.productListRetailPriceHistoryChart({ productListId }),
+      ProductListsService.productListRetailPriceHistoryChart({
+        alternativeFallbackOrder,
+        productListId,
+      }),
   })
 
   const productsQuery = useQuery({
@@ -176,12 +191,33 @@ function ProductListDetailPage() {
       </section>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Basket price history</CardTitle>
-          <CardDescription>
-            Estimated total price for this list over time, grouped by retailer.
-            Missing products are marked in the tooltip.
-          </CardDescription>
+        <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1.5">
+            <CardTitle>Basket price history</CardTitle>
+            <CardDescription>
+              Estimated total price for this list over time, grouped by
+              retailer. Missing products are marked in the tooltip.
+            </CardDescription>
+          </div>
+          <div className="space-y-2 sm:min-w-48">
+            <Label htmlFor="alternative-fallback-order">
+              Alternative fallback
+            </Label>
+            <Select
+              onValueChange={(value) =>
+                setAlternativeFallbackOrder(value as AlternativeFallbackOrder)
+              }
+              value={alternativeFallbackOrder}
+            >
+              <SelectTrigger id="alternative-fallback-order" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cheapest">Cheapest</SelectItem>
+                <SelectItem value="similar">Most similar</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           <BasketPriceHistoryChart
@@ -717,12 +753,20 @@ function ProductListItemAlternatives({
   })
 
   const bulkCreateMutation = useMutation({
-    mutationFn: (productIds: Array<string>) =>
+    mutationFn: (candidatesToCreate: Array<SimilarProductPublic>) =>
       ProductListsService.bulkCreateProductListItemAlternatives({
         itemId: item.id,
         productListId: item.product_list_id,
         requestBody: {
-          product_ids: productIds,
+          product_ids: candidatesToCreate.map(
+            (candidate) => candidate.product.id,
+          ),
+          similarity_scores: Object.fromEntries(
+            candidatesToCreate.map((candidate) => [
+              candidate.product.id,
+              candidate.score,
+            ]),
+          ),
         },
       }),
     onError: () => {
@@ -781,6 +825,9 @@ function ProductListItemAlternatives({
   })
 
   const candidates = similarProductsQuery.data ?? []
+  const candidateByProductId = new Map(
+    candidates.map((candidate) => [candidate.product.id, candidate]),
+  )
   const candidateProductIds = candidates.map(
     (candidate) => candidate.product.id,
   )
@@ -802,7 +849,10 @@ function ProductListItemAlternatives({
 
   function setProductSelected(productId: string, checked: boolean) {
     if (checked) {
-      bulkCreateMutation.mutate([productId])
+      const candidate = candidateByProductId.get(productId)
+      if (candidate) {
+        bulkCreateMutation.mutate([candidate])
+      }
       return
     }
 
@@ -814,11 +864,11 @@ function ProductListItemAlternatives({
 
   function setAllCandidatesSelected(checked: boolean) {
     if (checked) {
-      const newProductIds = candidateProductIds.filter(
-        (productId) => !alternativeByProductId.has(productId),
+      const newCandidates = candidates.filter(
+        (candidate) => !alternativeByProductId.has(candidate.product.id),
       )
-      if (newProductIds.length > 0) {
-        bulkCreateMutation.mutate(newProductIds)
+      if (newCandidates.length > 0) {
+        bulkCreateMutation.mutate(newCandidates)
       }
       return
     }

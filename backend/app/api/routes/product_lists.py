@@ -374,44 +374,62 @@ def product_list_retail_price_history_chart(
         else [nullslast(alternative_similarity_order.desc()), alternative_date_order.asc()]
     )
 
-    latest = (
+    ranked_matches = (
         select(
+            grid.c.retailer_id.label("retailer_id"),
+            grid.c.observed_date.label("observed_date"),
+            grid.c.quantity.label("quantity"),
             daily_obs.c.price_eur.label("price_eur"),
             daily_obs.c.is_special_sale.label("is_special_sale"),
+            func.row_number()
+            .over(
+                partition_by=(
+                    grid.c.retailer_id,
+                    grid.c.item_id,
+                    grid.c.observed_date,
+                ),
+                order_by=(
+                    daily_obs.c.fallback_rank.asc(),
+                    primary_date_order.asc(),
+                    *alternative_order_by,
+                    date_diff.desc(),
+                    daily_obs.c.price_eur.asc(),
+                ),
+            )
+            .label("match_rank"),
         )
-        .where(
-            daily_obs.c.retailer_id == grid.c.retailer_id,
-            daily_obs.c.item_id == grid.c.item_id,
-            daily_obs.c.observed_date >= min_observed_date,
-            daily_obs.c.observed_date <= max_observed_date,
+        .select_from(grid)
+        .join(
+            daily_obs,
+            (daily_obs.c.retailer_id == grid.c.retailer_id)
+            & (daily_obs.c.item_id == grid.c.item_id)
+            & (daily_obs.c.observed_date >= min_observed_date)
+            & (daily_obs.c.observed_date <= max_observed_date),
         )
-        .order_by(
-            daily_obs.c.fallback_rank.asc(),
-            primary_date_order.asc(),
-            *alternative_order_by,
-            date_diff.desc(),
-            daily_obs.c.price_eur.asc(),
-        )
-        .limit(1)
-        .lateral("latest")
+        .subquery("ranked_matches")
+    )
+
+    best_matches = (
+        select(ranked_matches)
+        .where(ranked_matches.c.match_rank == 1)
+        .subquery("best_matches")
     )
 
     statement = (
         select(
             Retailer,
-            grid.c.observed_date,
-            func.coalesce(func.sum(latest.c.price_eur * grid.c.quantity), 0).label(
-                "total_price_eur"
-            ),
-            func.count(latest.c.price_eur).label("matched_item_count"),
-            func.bool_or(latest.c.is_special_sale).label("has_special_sale"),
+            best_matches.c.observed_date,
+            func.coalesce(
+                func.sum(best_matches.c.price_eur * best_matches.c.quantity),
+                0,
+            ).label("total_price_eur"),
+            func.count(best_matches.c.price_eur).label("matched_item_count"),
+            func.bool_or(best_matches.c.is_special_sale).label("has_special_sale"),
         )
-        .select_from(grid)
-        .outerjoin(latest, true())
-        .join(Retailer, Retailer.id == grid.c.retailer_id)
-        .group_by(Retailer.id, grid.c.observed_date)
-        .having(func.count(latest.c.price_eur) > 0)
-        .order_by(grid.c.observed_date, Retailer.name)
+        .select_from(best_matches)
+        .join(Retailer, Retailer.id == best_matches.c.retailer_id)
+        .group_by(Retailer.id, best_matches.c.observed_date)
+        .order_by(best_matches.c.observed_date, Retailer.name)
     )
 
     rows = session.exec(statement).all()

@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import true
 from sqlmodel import SQLModel, delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -21,6 +22,8 @@ from app.models.receipt import Receipt, ReceiptItem
 from app.models.retailer import Retailer, RetailerPublic
 
 router = APIRouter(prefix="/product-lists", tags=["product-lists"])
+
+PRICE_HISTORY_STALENESS_DAYS = 30
 
 
 class ProductListUpdate(SQLModel):
@@ -238,42 +241,92 @@ def product_list_retail_price_history_chart(
     if total_item_count == 0:
         return []
 
-    item_prices = (
+    list_items = (
+        select(
+            ProductListItem.product_id.label("product_id"),
+            ProductListItem.quantity.label("quantity"),
+        )
+        .where(ProductListItem.product_list_id == product_list.id)
+        .subquery("list_items")
+    )
+
+    daily_obs = (
         select(
             PriceObservation.retailer_id.label("retailer_id"),
-            PriceObservation.observed_date.label("observed_date"),
             PriceObservation.product_id.label("product_id"),
-            ProductListItem.quantity.label("quantity"),
-            func.avg(PriceObservation.price_eur).label("average_price_eur"),
-            func.bool_or(PriceObservation.is_special_sale).label("has_special_sale"),
+            PriceObservation.observed_date.label("observed_date"),
+            func.avg(PriceObservation.price_eur).label("price_eur"),
+            func.bool_or(PriceObservation.is_special_sale).label("is_special_sale"),
         )
-        .join(ProductListItem, ProductListItem.product_id == PriceObservation.product_id)
-        .where(
-            ProductListItem.product_list_id == product_list.id,
-            PriceObservation.price_eur.is_not(None),
-        )
+        .join(list_items, list_items.c.product_id == PriceObservation.product_id)
+        .where(PriceObservation.price_eur.is_not(None))
         .group_by(
             PriceObservation.retailer_id,
-            PriceObservation.observed_date,
             PriceObservation.product_id,
-            ProductListItem.quantity,
+            PriceObservation.observed_date,
         )
-        .subquery()
+        .subquery("daily_obs")
+    )
+
+    retailers_sq = (
+        select(daily_obs.c.retailer_id).distinct().subquery("retailers")
+    )
+    sample_dates = (
+        select(daily_obs.c.observed_date).distinct().subquery("sample_dates")
+    )
+
+    grid = (
+        select(
+            retailers_sq.c.retailer_id.label("retailer_id"),
+            list_items.c.product_id.label("product_id"),
+            list_items.c.quantity.label("quantity"),
+            sample_dates.c.observed_date.label("observed_date"),
+        )
+        .select_from(retailers_sq)
+        .join(list_items, true())
+        .join(sample_dates, true())
+        .subquery("grid")
+    )
+
+    # Fill each (retailer, product, date) cell with the nearest-in-time
+    # observation inside the staleness window so every retailer prices the
+    # full basket on every sampled date — without this, the chart's totals
+    # move with coverage changes, not real price changes. Past observations
+    # are preferred over equally-distant future ones (forward-fill bias),
+    # but future observations are used when no past data exists in the
+    # window — needed for products newly added to a retailer's catalog.
+    date_diff = grid.c.observed_date - daily_obs.c.observed_date
+    latest = (
+        select(
+            daily_obs.c.price_eur.label("price_eur"),
+            daily_obs.c.is_special_sale.label("is_special_sale"),
+        )
+        .where(
+            daily_obs.c.retailer_id == grid.c.retailer_id,
+            daily_obs.c.product_id == grid.c.product_id,
+            func.abs(date_diff) <= PRICE_HISTORY_STALENESS_DAYS,
+        )
+        .order_by(func.abs(date_diff).asc(), date_diff.desc())
+        .limit(1)
+        .lateral("latest")
     )
 
     statement = (
         select(
             Retailer,
-            item_prices.c.observed_date,
-            func.sum(item_prices.c.average_price_eur * item_prices.c.quantity).label(
-                "total_price_eur",
-            ),
-            func.count(item_prices.c.product_id).label("matched_item_count"),
-            func.bool_or(item_prices.c.has_special_sale).label("has_special_sale"),
+            grid.c.observed_date,
+            func.coalesce(
+                func.sum(latest.c.price_eur * grid.c.quantity), 0
+            ).label("total_price_eur"),
+            func.count(latest.c.price_eur).label("matched_item_count"),
+            func.bool_or(latest.c.is_special_sale).label("has_special_sale"),
         )
-        .join(Retailer, Retailer.id == item_prices.c.retailer_id)
-        .group_by(Retailer.id, Retailer.name, item_prices.c.observed_date)
-        .order_by(item_prices.c.observed_date, Retailer.name)
+        .select_from(grid)
+        .outerjoin(latest, true())
+        .join(Retailer, Retailer.id == grid.c.retailer_id)
+        .group_by(Retailer.id, grid.c.observed_date)
+        .having(func.count(latest.c.price_eur) > 0)
+        .order_by(grid.c.observed_date, Retailer.name)
     )
 
     rows = session.exec(statement).all()

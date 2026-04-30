@@ -20,18 +20,7 @@ fileConfig(config.config_file_name)
 from sqlmodel import SQLModel  # noqa
 
 from app.core.config import settings  # noqa
-from app.models.price_observation import PriceObservation  # noqa
-from app.models.product import Product  # noqa
-from app.models.product_alias import ProductAlias  # noqa
-from app.models.product_list import (  # noqa
-    ProductList,
-    ProductListItem,
-    ProductListItemAlternative,
-)
-from app.models.receipt import Receipt, ReceiptItem  # noqa
-from app.models.retailer import Retailer  # noqa
-from app.models.store import Store  # noqa
-from app.models.user import User  # noqa
+import app.models  # noqa
 
 target_metadata = SQLModel.metadata
 

@@ -85,7 +85,9 @@ class ReceiptsPublic(SQLModel):
 
 class ReceiptItemBase(SQLModel):
     receipt_id: uuid.UUID = Field(foreign_key="receipt.id", index=True)
-    product_id: uuid.UUID | None = Field(default=None, foreign_key="product.id", index=True)
+    product_id: uuid.UUID | None = Field(
+        default=None, foreign_key="product.id", index=True
+    )
     price_observation_id: uuid.UUID | None = Field(
         default=None,
         foreign_key="priceobservation.id",

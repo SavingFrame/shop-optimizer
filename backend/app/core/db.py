@@ -1,18 +1,12 @@
+# ruff: noqa: F403, F405
+
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app import crud
 from app.core.config import settings
-from app.models.price_observation import PriceObservation  # noqa: F401
-from app.models.product import Product  # noqa: F401
-from app.models.product_alias import ProductAlias  # noqa: F401
-from app.models.product_list import (  # noqa: F401
-    ProductList,
-    ProductListItem,
-    ProductListItemAlternative,
-)
-from app.models.retailer import ReailerEnum, Retailer  # noqa: F401
-from app.models.store import Store  # noqa: F401
-from app.models.user import User, UserCreate
+from app.models import *  # noqa: F403
+from app.models.retailer import ReailerEnum
+from app.models.user import UserCreate
 
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 

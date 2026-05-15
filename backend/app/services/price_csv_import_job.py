@@ -13,15 +13,11 @@ from app.models.retailer import ReailerEnum
 from app.models.store import Store
 from app.services.price_csv_importer import (
     BaseRetailerPriceCsvParser,
-    KauflandPriceCsvParser,
-    LidlPriceCsvParser,
     PriceCsvImporter,
     SparPriceCsvParser,
 )
 from app.services.price_downloader import (
     BasePriceDownloader,
-    KauflandPriceDownloader,
-    LidlPriceDownloader,
     SparPriceDownloader,
     StorePriceCsvNotFound,
 )
@@ -50,7 +46,7 @@ class PriceCsvImportJob:
 
     def import_retailer(self, retailer_id: uuid.UUID, date: datetime.date) -> None:
         _, downloader, parser = self._get_retailer_import(retailer_id)
-        store_ids = self._get_retailer_store_ids(retailer_id)
+        store_ids = self._get_retailer_store_ids(retailer_id)[1:]
 
         if not store_ids:
             logger.info(
@@ -167,12 +163,12 @@ class PriceCsvImportJob:
     def _retailer_imports(self) -> Sequence[RetailerImport]:
         return [
             (ReailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
-            (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
-            (
-                ReailerEnum.KAUFLAND.value.id,
-                KauflandPriceDownloader(),
-                KauflandPriceCsvParser(),
-            ),
+            # (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
+            # (
+            #     ReailerEnum.KAUFLAND.value.id,
+            #     KauflandPriceDownloader(),
+            #     KauflandPriceCsvParser(),
+            # ),
         ]
 
     def _get_retailer_import(self, retailer_id: uuid.UUID) -> RetailerImport:

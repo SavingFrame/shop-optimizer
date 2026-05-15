@@ -4,11 +4,10 @@ import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeVar
 
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models.price_observation import PriceObservation
@@ -20,6 +19,17 @@ from app.models.store import Store
 logger = logging.getLogger(__name__)
 
 CsvRow = Mapping[str, str | None]
+BulkRow = dict[str, Any]
+ChunkItem = TypeVar("ChunkItem")
+BULK_INSERT_CHUNK_SIZE = 5000
+
+
+def _chunks(
+    values: list[ChunkItem],
+    size: int = BULK_INSERT_CHUNK_SIZE,
+) -> Iterable[list[ChunkItem]]:
+    for index in range(0, len(values), size):
+        yield values[index : index + size]
 
 
 @dataclass(frozen=True)
@@ -156,6 +166,7 @@ class PriceCsvImporter:
     ) -> None:
         self.parser = parser
         self.observed_date = observed_date
+        self._products: list[dict[str, uuid.UUID | str | None]] = []
 
     def import_prices(
         self,
@@ -168,196 +179,235 @@ class PriceCsvImporter:
                 f"CSV parser {self.parser.retailer_name} does not match store retailer."
             )
 
-        imported = 0
-        skipped = 0
-        products_created = 0
-        observations_created = 0
-        observations_updated = 0
+        normalized_rows = [
+            normalized_row
+            for row in rows
+            if (normalized_row := self.parser.normalize_row(row))
+        ]
+        self._upsert_barcode_products(normalized_rows, session=session)
+        self._insert_products_without_barcode(normalized_rows, session=session)
+        aliases = {}
+        observations = {}
 
-        for raw_row in rows:
-            normalized = self.parser.normalize_row(raw_row)
-            if normalized is None:
-                skipped += 1
+        for row in normalized_rows:
+            product_id = self._get_product_id(row)
+            if product_id is None:
                 continue
 
-            product, product_created = self._get_or_create_product(session, normalized)
-            self._upsert_alias(
-                session=session,
-                store=store,
-                normalized=normalized,
-                product=product,
-                source=ProductAliasSource.PRICE_CSV,
-                confidence=Decimal("0.9500"),
-            )
-            observation, observation_created = self._upsert_observation(
-                session=session,
-                store=store,
-                normalized=normalized,
-                product=product,
-            )
-            session.add(observation)
-
-            imported += 1
-            products_created += int(product_created)
-            observations_created += int(observation_created)
-            observations_updated += int(not observation_created)
-
+            normalized_alias_name = self._normalize_alias_name(row.source_product_name)
+            aliases[
+                (
+                    product_id,
+                    store.retailer_id,
+                    normalized_alias_name,
+                    row.retailer_product_code,
+                    ProductAliasSource.PRICE_CSV.value,
+                )
+            ] = {
+                "product_id": product_id,
+                "retailer_id": store.retailer_id,
+                "alias_name": row.source_product_name,
+                "normalized_alias_name": normalized_alias_name,
+                "retailer_product_code": row.retailer_product_code,
+                "source": ProductAliasSource.PRICE_CSV.value,
+                "confidence": Decimal("0.9500"),
+                "first_seen_at": func.now(),
+                "last_seen_at": func.now(),
+            }
+            observations[
+                (
+                    store.retailer_id,
+                    store.id,
+                    self.observed_date,
+                    row.retailer_product_code,
+                    product_id,
+                )
+            ] = {
+                "retailer_id": store.retailer_id,
+                "store_id": store.id,
+                "observed_date": self.observed_date,
+                "retailer_product_code": row.retailer_product_code,
+                "product_id": product_id,
+                "source_product_name": row.source_product_name,
+                "price_eur": row.price_eur,
+                "unit_price_eur": row.unit_price_eur,
+                "is_special_sale": row.is_special_sale,
+                "source_file_name": None,
+            }
+        self._insert_observations(list(observations.values()), session=session)
+        self._insert_aliases(list(aliases.values()), session=session)
         session.commit()
-        logger.info(
-            "Imported price CSV for store %s using %s parser: imported=%s, skipped=%s, products_created=%s, observations_created=%s, observations_updated=%s",
-            store.name,
-            self.parser.retailer_name,
-            imported,
-            skipped,
-            products_created,
-            observations_created,
-            observations_updated,
-        )
 
-    def _get_or_create_product(
-        self,
-        session: Session,
-        row: NormalizedPriceRow,
-    ) -> tuple[Product, bool]:
-        product = self._find_existing_product(session, row)
-        if product is None:
-            product = Product(
-                barcode=row.barcode,
-                name=row.source_product_name,
-                brand=row.brand,
-                net_quantity=row.net_quantity,
-                unit_of_measure=row.unit_of_measure,
-                category=row.category,
-            )
-            session.add(product)
-            try:
-                session.flush()
-            except IntegrityError:
-                session.rollback()
-                if not row.barcode:
-                    raise
-                product = session.exec(
-                    select(Product).where(Product.barcode == row.barcode)
-                ).one()
-                return product, False
-            return product, True
+    def _upsert_barcode_products(
+        self, rows: list[NormalizedPriceRow], session: Session
+    ) -> None:
+        barcode_rows = {row.barcode: row for row in rows if row.barcode}
+        if not barcode_rows:
+            return
 
-        changed = False
-        for field_name, value in {
-            "brand": row.brand,
-            "net_quantity": row.net_quantity,
-            "unit_of_measure": row.unit_of_measure,
-            "category": row.category,
-        }.items():
-            if getattr(product, field_name) is None and value is not None:
-                setattr(product, field_name, value)
-                changed = True
-        if changed:
-            session.add(product)
-        return product, False
+        product_rows = [
+            {
+                "barcode": row.barcode,
+                "name": row.source_product_name,
+                "brand": row.brand,
+                "net_quantity": row.net_quantity,
+                "unit_of_measure": row.unit_of_measure,
+                "category": row.category,
+            }
+            for row in barcode_rows.values()
+        ]
+        for product_rows_chunk in _chunks(product_rows):
+            stmt = insert(Product).values(product_rows_chunk)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["barcode"],
+                set_={
+                    "brand": func.coalesce(Product.brand, stmt.excluded.brand),
+                    "net_quantity": func.coalesce(
+                        Product.net_quantity, stmt.excluded.net_quantity
+                    ),
+                    "unit_of_measure": func.coalesce(
+                        Product.unit_of_measure, stmt.excluded.unit_of_measure
+                    ),
+                    "category": func.coalesce(Product.category, stmt.excluded.category),
+                },
+            ).returning(Product.id, Product.barcode)
+            results = session.exec(stmt)
+            for row in results:
+                self._products.append({"id": row[0], "barcode": row[1]})
 
-    def _find_existing_product(
-        self,
-        session: Session,
-        row: NormalizedPriceRow,
-    ) -> Product | None:
-        if row.barcode:
-            return session.exec(
-                select(Product).where(Product.barcode == row.barcode)
-            ).first()
+    def _insert_products_without_barcode(
+        self, rows: list[NormalizedPriceRow], session: Session
+    ) -> None:
+        rows_by_code = {
+            row.retailer_product_code: row
+            for row in rows
+            if not row.barcode and row.retailer_product_code
+        }
+        if not rows_by_code:
+            return
 
-        return session.exec(
-            select(Product)
-            .join(PriceObservation)
-            .where(
+        existing_products = session.exec(
+            select(
+                PriceObservation.retailer_product_code,
+                PriceObservation.product_id,
+            ).where(
                 PriceObservation.retailer_id == self.parser.retailer_id,
-                PriceObservation.retailer_product_code == row.retailer_product_code,
+                PriceObservation.retailer_product_code.in_(list(rows_by_code)),
             )
-        ).first()
+        )
+        existing_product_codes = set()
+        for retailer_product_code, product_id in existing_products:
+            if retailer_product_code in existing_product_codes:
+                continue
+            existing_product_codes.add(retailer_product_code)
+            self._products.append(
+                {
+                    "id": product_id,
+                    "barcode": None,
+                    "retailer_product_code": retailer_product_code,
+                }
+            )
+
+        missing_rows = [
+            row
+            for retailer_product_code, row in rows_by_code.items()
+            if retailer_product_code not in existing_product_codes
+        ]
+        if not missing_rows:
+            return
+
+        product_rows: list[BulkRow] = []
+        for row in missing_rows:
+            product_id = uuid.uuid7()
+            product_rows.append(
+                {
+                    "id": product_id,
+                    "barcode": None,
+                    "name": row.source_product_name,
+                    "brand": row.brand,
+                    "net_quantity": row.net_quantity,
+                    "unit_of_measure": row.unit_of_measure,
+                    "category": row.category,
+                }
+            )
+            self._products.append(
+                {
+                    "id": product_id,
+                    "barcode": None,
+                    "retailer_product_code": row.retailer_product_code,
+                }
+            )
+
+        for product_rows_chunk in _chunks(product_rows):
+            session.exec(insert(Product).values(product_rows_chunk))
+
+    def _get_product_id(self, row: NormalizedPriceRow) -> uuid.UUID | None:
+        if row.barcode:
+            result = next(
+                (
+                    product["id"]
+                    for product in self._products
+                    if product["barcode"] == row.barcode
+                ),
+                None,
+            )
+        else:
+            result = next(
+                (
+                    product["id"]
+                    for product in self._products
+                    if product.get("retailer_product_code") == row.retailer_product_code
+                ),
+                None,
+            )
+
+        if not result:
+            logger.warning(
+                "Product not found for row with barcode %s and retailer product code %s",
+                row.barcode,
+                row.retailer_product_code,
+            )
+        return result
+
+    def _insert_observations(self, rows: list[BulkRow], session: Session) -> None:
+        if not rows:
+            return
+
+        for rows_chunk in _chunks(rows):
+            stmt = insert(PriceObservation).values(rows_chunk)
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_price_observation_retailer_store_date_code_product",
+                set_={
+                    "source_product_name": stmt.excluded.source_product_name,
+                    "price_eur": stmt.excluded.price_eur,
+                    "unit_price_eur": stmt.excluded.unit_price_eur,
+                    "is_special_sale": stmt.excluded.is_special_sale,
+                },
+            )
+            session.exec(stmt)
+
+    def _insert_aliases(self, rows: list[BulkRow], session: Session) -> None:
+        if not rows:
+            return
+
+        for rows_chunk in _chunks(rows):
+            stmt = insert(ProductAlias).values(rows_chunk)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[
+                    ProductAlias.product_id,
+                    ProductAlias.retailer_id,
+                    ProductAlias.normalized_alias_name,
+                    ProductAlias.retailer_product_code,
+                    ProductAlias.source,
+                ],
+                set_={
+                    "alias_name": stmt.excluded.alias_name,
+                    "confidence": stmt.excluded.confidence,
+                    "last_seen_at": stmt.excluded.last_seen_at,
+                },
+            )
+            session.exec(stmt)
 
     @staticmethod
     def _normalize_alias_name(value: str) -> str:
         return " ".join(value.strip().lower().split())
-
-    def _upsert_alias(
-        self,
-        session: Session,
-        store: Store,
-        normalized: NormalizedPriceRow,
-        product: Product,
-        source: ProductAliasSource,
-        confidence: Decimal,
-    ) -> None:
-        retailer_id = store.retailer_id
-        retailer_product_code = normalized.retailer_product_code
-        alias_name = normalized.source_product_name
-        statement = insert(ProductAlias).values(
-            product_id=product.id,
-            retailer_id=retailer_id,
-            alias_name=alias_name,
-            normalized_alias_name=self._normalize_alias_name(alias_name),
-            retailer_product_code=retailer_product_code,
-            source=source.value,
-            confidence=confidence,
-            first_seen_at=func.now(),
-            last_seen_at=func.now(),
-        )
-        excluded = statement.excluded
-        statement = statement.on_conflict_do_update(
-            index_elements=[
-                ProductAlias.product_id,
-                ProductAlias.retailer_id,
-                ProductAlias.normalized_alias_name,
-                ProductAlias.retailer_product_code,
-                ProductAlias.source,
-            ],
-            set_={
-                ProductAlias.alias_name: excluded.alias_name,
-                ProductAlias.confidence: func.greatest(
-                    ProductAlias.confidence,
-                    excluded.confidence,
-                ),
-                ProductAlias.last_seen_at: excluded.last_seen_at,
-            },
-        )
-        session.exec(statement)
-
-    def _upsert_observation(
-        self,
-        session: Session,
-        store: Store,
-        normalized: NormalizedPriceRow,
-        product: Product,
-    ) -> tuple[PriceObservation, bool]:
-        statement = select(PriceObservation).where(
-            PriceObservation.retailer_id == store.retailer_id,
-            PriceObservation.store_id == store.id,
-            PriceObservation.observed_date == self.observed_date,
-            PriceObservation.retailer_product_code == normalized.retailer_product_code,
-            PriceObservation.product_id == product.id,
-        )
-        observation = session.exec(statement).first()
-        if observation is None:
-            return (
-                PriceObservation(
-                    product_id=product.id,
-                    retailer_id=store.retailer_id,
-                    store_id=store.id,
-                    observed_date=self.observed_date,
-                    retailer_product_code=normalized.retailer_product_code,
-                    source_product_name=normalized.source_product_name,
-                    price_eur=normalized.price_eur,
-                    unit_price_eur=normalized.unit_price_eur,
-                    is_special_sale=normalized.is_special_sale,
-                    source_file_name=None,
-                ),
-                True,
-            )
-
-        observation.product_id = product.id
-        observation.source_product_name = normalized.source_product_name
-        observation.price_eur = normalized.price_eur
-        observation.unit_price_eur = normalized.unit_price_eur
-        observation.is_special_sale = normalized.is_special_sale
-        observation.source_file_name = None
-        return observation, False

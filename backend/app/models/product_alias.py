@@ -41,7 +41,6 @@ class ProductAliasBase(SQLModel):
     )
     retailer_product_code: str | None = Field(
         default=None,
-        index=True,
         max_length=32,
         description="Retailer scoped product code when available.",
     )

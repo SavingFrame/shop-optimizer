@@ -1,4 +1,5 @@
 import datetime
+import logging
 import uuid
 
 from celery import Celery, chain
@@ -8,7 +9,9 @@ from sqlmodel import Session
 from app.core.db import engine
 from app.services.daily_observation_service import ObservationDailyCalculator
 from app.services.openfoodfacts_product_images import OpenFoodFactsProductImageSyncer
-from app.services.price_csv_import_job import PriceCsvImportJob, parse_import_date
+from app.services.price_csv_import_job import PriceCsvImportJob
+
+logger = logging.getLogger(__name__)
 
 celery = Celery(
     "worker",
@@ -25,21 +28,22 @@ celery.conf.beat_schedule = {
 
 
 @celery.task
-def download_csv(date: datetime.date | str | None = None):
-    today = parse_import_date(date)
+def download_csv(date: datetime.date | None = None):
+    if not date:
+        date = datetime.date.today()
     job = PriceCsvImportJob()
 
     retailer_tasks = [
         download_retailer_csv.si(
             retailer_id=str(retailer_id),
-            date=today.isoformat(),
+            date=date,
         )
         for retailer_id in job.supported_retailer_ids()
     ]
     chain(
         *retailer_tasks,
         reconcile_product_names.si(),
-        calculate_observation_daily.si(date_from=today, date_to=today),
+        calculate_observation_daily.si(date_from=date, date_to=date),
     ).apply_async()
 
 
@@ -56,10 +60,11 @@ def calculate_observation_daily(date_from: datetime.date, date_to: datetime.date
 
 
 @celery.task
-def download_retailer_csv(retailer_id: str, date: str):
+def download_retailer_csv(retailer_id: str, date: datetime.date):
+    logger.info("Importing price CSV for retailer %s on date %s", retailer_id, date)
     PriceCsvImportJob().import_retailer(
         retailer_id=uuid.UUID(retailer_id),
-        date=parse_import_date(date),
+        date=date,
     )
 
 
@@ -71,11 +76,25 @@ def reconcile_product_names(_results=None):
 @celery.task
 def backfill_csv(days: int = 30):
     today = datetime.date.today()
-    tasks = []
+    retailer_tasks = []
+
+    job = PriceCsvImportJob()
+
     for i in range(days):
         date = today - datetime.timedelta(days=i)
-        tasks.append(download_csv.si(date=date))
-    chain(*tasks).apply_async()
+        for retailer_id in job.supported_retailer_ids():
+            retailer_tasks.append(
+                download_retailer_csv.si(
+                    retailer_id=str(retailer_id),
+                    date=date,
+                )
+            )
+
+    chain(
+        *retailer_tasks,
+        reconcile_product_names.si(),
+        calculate_observation_daily.si(date_from=date, date_to=date),
+    ).apply_async()
 
 
 @celery.task

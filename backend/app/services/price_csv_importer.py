@@ -57,10 +57,15 @@ class BaseRetailerPriceCsvParser:
         name = self.clean(row.get(self.columns["name"]))
         code = self.clean(row.get(self.columns["code"]))
         unit_price = self.parse_decimal(row.get(self.columns["unit_price"]))
+        retail_price = self.parse_decimal(row.get(self.columns["retail_price"]))
+        if unit_price is None and retail_price is None:
+            return None
         if not name or not code or unit_price is None:
             return None
 
-        retail_price = self.parse_decimal(row.get(self.columns["retail_price"]))
+        retail_price = retail_price or unit_price
+        unit_price = unit_price or retail_price
+
         special_sale_price = self.parse_decimal(
             row.get(self.columns["special_sale_price"])
         )

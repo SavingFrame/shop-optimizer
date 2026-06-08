@@ -39,6 +39,18 @@ class PriceObservationDailyBase(SQLModel):
         sa_column=Column(Numeric(10, 2), nullable=False),
         description="Average product price from the source price list.",
     )
+    unit_price_eur_min: Decimal = Field(
+        sa_column=Column(Numeric(10, 2), nullable=False),
+        description="Minimum unit price from the source price list.",
+    )
+    unit_price_eur_max: Decimal = Field(
+        sa_column=Column(Numeric(10, 2), nullable=False),
+        description="Maximum unit price from the source price list.",
+    )
+    unit_price_eur_avg: Decimal = Field(
+        sa_column=Column(Numeric(10, 2), nullable=False),
+        description="Average unit price from the source price list.",
+    )
     is_special_sale: bool = Field(
         default=False,
         sa_column=Column(Boolean, nullable=False),
@@ -48,6 +60,11 @@ class PriceObservationDailyBase(SQLModel):
         default=False,
         sa_column=Column(Boolean, nullable=False, server_default="0"),
         description="Whether price_eur comes from the special sale price column.",
+    )
+    observation_count: int = Field(
+        default=1,
+        sa_column_kwargs={"server_default": "1"},
+        description="Number of price observations aggregated into this daily observation.",
     )
 
 

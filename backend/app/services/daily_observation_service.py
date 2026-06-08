@@ -23,7 +23,11 @@ class ObservationDailyCalculator:
                 func.min(PriceObservation.price_eur).label("price_eur_min"),
                 func.max(PriceObservation.price_eur).label("price_eur_max"),
                 func.avg(PriceObservation.price_eur).label("price_eur_avg"),
+                func.min(PriceObservation.unit_price_eur).label("unit_price_eur_min"),
+                func.max(PriceObservation.unit_price_eur).label("unit_price_eur_max"),
+                func.avg(PriceObservation.unit_price_eur).label("unit_price_eur_avg"),
                 func.bool_or(PriceObservation.is_special_sale).label("is_special_sale"),
+                func.count(PriceObservation.id).label("observation_count"),
             )
             .where(
                 PriceObservation.observed_date >= self.date_from,
@@ -46,7 +50,11 @@ class ObservationDailyCalculator:
                 "price_eur_min",
                 "price_eur_max",
                 "price_eur_avg",
+                "unit_price_eur_min",
+                "unit_price_eur_max",
+                "unit_price_eur_avg",
                 "is_special_sale",
+                "observation_count",
             ],
             select_stmt,
         )
@@ -56,7 +64,11 @@ class ObservationDailyCalculator:
                 "price_eur_min": insert_stmt.excluded.price_eur_min,
                 "price_eur_max": insert_stmt.excluded.price_eur_max,
                 "price_eur_avg": insert_stmt.excluded.price_eur_avg,
+                "unit_price_eur_min": insert_stmt.excluded.unit_price_eur_min,
+                "unit_price_eur_max": insert_stmt.excluded.unit_price_eur_max,
+                "unit_price_eur_avg": insert_stmt.excluded.unit_price_eur_avg,
                 "is_special_sale": insert_stmt.excluded.is_special_sale,
+                "observation_count": insert_stmt.excluded.observation_count,
             },
         )
         self.session.exec(insert_stmt)

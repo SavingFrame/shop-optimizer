@@ -7,7 +7,7 @@ from sqlalchemy import bindparam, case, desc, func, or_, union_all
 from sqlalchemy import select as sa_select
 from sqlmodel import Session, select
 
-from app.models.price_observation import PriceObservation
+from app.models import PriceObservationDaily
 from app.models.product import Product
 from app.models.product_alias import ProductAlias
 from app.models.retailer import Retailer
@@ -231,8 +231,8 @@ class ProductSimilarityService:
         product_id: uuid.UUID,
     ) -> set[uuid.UUID]:
         rows = session.exec(
-            select(PriceObservation.retailer_id)
-            .where(PriceObservation.product_id == product_id)
+            select(PriceObservationDaily.retailer_id)
+            .where(PriceObservationDaily.product_id == product_id)
             .distinct(),
         ).all()
         return set(rows)
@@ -243,11 +243,11 @@ class ProductSimilarityService:
         product_ids: list[uuid.UUID],
     ) -> dict[uuid.UUID, list[Retailer]]:
         rows = session.exec(
-            select(PriceObservation.product_id, Retailer)
-            .join(Retailer, Retailer.id == PriceObservation.retailer_id)
-            .where(PriceObservation.product_id.in_(product_ids))
-            .group_by(PriceObservation.product_id, Retailer.id)
-            .order_by(PriceObservation.product_id, Retailer.name),
+            select(PriceObservationDaily.product_id, Retailer)
+            .join(Retailer, Retailer.id == PriceObservationDaily.retailer_id)
+            .where(PriceObservationDaily.product_id.in_(product_ids))
+            .group_by(PriceObservationDaily.product_id, Retailer.id)
+            .order_by(PriceObservationDaily.product_id, Retailer.name),
         ).all()
 
         retailers_by_product_id: dict[uuid.UUID, list[Retailer]] = {}
@@ -263,33 +263,33 @@ class ProductSimilarityService:
     ) -> dict[uuid.UUID, tuple[Decimal | None, Decimal | None, date | None]]:
         latest_dates = (
             select(
-                PriceObservation.product_id.label("product_id"),
-                func.max(PriceObservation.observed_date).label("latest_observed_date"),
+                PriceObservationDaily.product_id.label("product_id"),
+                func.max(PriceObservationDaily.observed_date).label(
+                    "latest_observed_date"
+                ),
             )
-            .where(PriceObservation.product_id.in_(product_ids))
-            .group_by(PriceObservation.product_id)
+            .where(PriceObservationDaily.product_id.in_(product_ids))
+            .group_by(PriceObservationDaily.product_id)
             .subquery("latest_dates")
         )
         rows = session.exec(
             select(
-                PriceObservation.product_id,
-                func.avg(PriceObservation.price_eur).label("latest_price_eur"),
-                func.avg(PriceObservation.price_eur).label("average_price_eur"),
+                PriceObservationDaily.product_id,
+                PriceObservationDaily.price_eur_avg.label("latest_price_eur"),
+                PriceObservationDaily.price_eur_avg.label("average_price_eur"),
                 latest_dates.c.latest_observed_date,
             )
             .join(
                 latest_dates,
-                (latest_dates.c.product_id == PriceObservation.product_id)
+                (latest_dates.c.product_id == PriceObservationDaily.product_id)
                 & (
                     latest_dates.c.latest_observed_date
-                    == PriceObservation.observed_date
+                    == PriceObservationDaily.observed_date
                 ),
             )
             .where(
-                PriceObservation.product_id.in_(product_ids),
-                PriceObservation.price_eur.is_not(None),
+                PriceObservationDaily.product_id.in_(product_ids),
             )
-            .group_by(PriceObservation.product_id, latest_dates.c.latest_observed_date),
         ).all()
 
         return {

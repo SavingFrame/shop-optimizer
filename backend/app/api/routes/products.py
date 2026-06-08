@@ -9,6 +9,7 @@ from sqlmodel import SQLModel, func, select
 
 from app.api.deps import SessionDep
 from app.models.price_observation import PriceObservation, PriceObservationPublic
+from app.models.price_observation_daily import PriceObservationDaily
 from app.models.product import Product, ProductPublic, ProductsPublic
 from app.models.product_alias import ProductAlias
 from app.models.retailer import Retailer, RetailerPublic
@@ -42,29 +43,31 @@ def read_products(
     coverage_date = func.current_date() - 1
 
     latest_product_price_subquery = (
-        select(PriceObservation.price_eur)
-        .where(PriceObservation.product_id == Product.id)
-        .order_by(desc(PriceObservation.observed_date), PriceObservation.id)
+        select(PriceObservationDaily.price_eur_avg)
+        .where(PriceObservationDaily.product_id == Product.id)
+        .order_by(desc(PriceObservationDaily.observed_date), PriceObservationDaily.id)
         .limit(1)
         .scalar_subquery()
     )
 
     if not search:
         count_statement = select(
-            func.count(func.distinct(PriceObservation.product_id)),
-        ).where(PriceObservation.observed_date == coverage_date)
+            func.count(func.distinct(PriceObservationDaily.product_id)),
+        ).where(PriceObservationDaily.observed_date == coverage_date)
         count = session.exec(count_statement).one()
 
         product_coverage = (
             select(
-                PriceObservation.product_id.label("product_id"),
-                func.count(func.distinct(PriceObservation.retailer_id)).label(
+                PriceObservationDaily.product_id.label("product_id"),
+                func.count(func.distinct(PriceObservationDaily.retailer_id)).label(
                     "retailer_count",
                 ),
-                func.count().label("observation_count"),
+                func.sum(PriceObservationDaily.observation_count).label(
+                    "observation_count"
+                ),
             )
-            .where(PriceObservation.observed_date == coverage_date)
-            .group_by(PriceObservation.product_id)
+            .where(PriceObservationDaily.observed_date == coverage_date)
+            .group_by(PriceObservationDaily.product_id)
             .cte("product_coverage")
         )
         has_image = (Product.image_url.is_not(None)) & (Product.image_url != "")
@@ -151,14 +154,16 @@ def read_products(
 
     product_coverage = (
         select(
-            PriceObservation.product_id.label("product_id"),
-            func.count(func.distinct(PriceObservation.retailer_id)).label(
+            PriceObservationDaily.product_id.label("product_id"),
+            func.count(func.distinct(PriceObservationDaily.retailer_id)).label(
                 "retailer_count",
             ),
-            func.count().label("observation_count"),
+            func.sum(PriceObservationDaily.observation_count).label(
+                "observation_count"
+            ),
         )
-        .where(PriceObservation.observed_date == coverage_date)
-        .group_by(PriceObservation.product_id)
+        .where(PriceObservationDaily.observed_date == coverage_date)
+        .group_by(PriceObservationDaily.product_id)
         .cte("product_coverage")
     )
 
@@ -214,7 +219,6 @@ class RetailerPriceObservationSummary(SQLModel):
     min_unit_price_eur: Decimal
     max_unit_price_eur: Decimal
     store_count: int
-    observation_count: int
     has_store_price_variance: bool
     has_special_sale: bool
 
@@ -290,16 +294,15 @@ def product_daily_retail_price_history_chart(
     statement = (
         select(
             Retailer,
-            PriceObservation.observed_date,
-            func.avg(PriceObservation.price_eur).label("average_price_eur"),
-            func.min(PriceObservation.price_eur).label("min_price_eur"),
-            func.max(PriceObservation.price_eur).label("max_price_eur"),
-            func.bool_or(PriceObservation.is_special_sale).label("has_special_sale"),
+            PriceObservationDaily.observed_date,
+            PriceObservationDaily.price_eur_avg.label("average_price_eur"),
+            PriceObservationDaily.price_eur_min.label("min_price_eur"),
+            PriceObservationDaily.price_eur_max.label("max_price_eur"),
+            PriceObservationDaily.is_special_sale.label("has_special_sale"),
         )
-        .join(Retailer, Retailer.id == PriceObservation.retailer_id)
-        .where(PriceObservation.product_id == product_id)
-        .group_by(Retailer.id, Retailer.name, PriceObservation.observed_date)
-        .order_by(PriceObservation.observed_date, Retailer.name)
+        .join(Retailer, Retailer.id == PriceObservationDaily.retailer_id)
+        .where(PriceObservationDaily.product_id == product_id)
+        .order_by(PriceObservationDaily.observed_date, Retailer.name)
     )
 
     rows = session.exec(statement).all()
@@ -330,40 +333,42 @@ def product_daily_retail_price_history_chart(
 def grouped_product_price_observations(product_id: uuid.UUID, session: SessionDep):
     latest_observations = (
         select(
-            PriceObservation.retailer_id,
-            func.max(PriceObservation.observed_date).label("observed_date"),
+            PriceObservationDaily.retailer_id,
+            func.max(PriceObservationDaily.observed_date).label("observed_date"),
         )
-        .where(PriceObservation.product_id == product_id)
-        .group_by(PriceObservation.retailer_id)
+        .where(PriceObservationDaily.product_id == product_id)
+        .group_by(PriceObservationDaily.retailer_id)
         .subquery()
     )
 
     statement = (
         select(
             Retailer,
-            latest_observations.c.observed_date,
-            func.avg(PriceObservation.price_eur).label("average_price_eur"),
-            func.min(PriceObservation.price_eur).label("min_price_eur"),
-            func.max(PriceObservation.price_eur).label("max_price_eur"),
-            func.count(
-                func.distinct(func.coalesce(PriceObservation.price_eur, -1)),
-            ).label("price_variant_count"),
-            func.avg(PriceObservation.unit_price_eur).label("average_unit_price_eur"),
-            func.min(PriceObservation.unit_price_eur).label("min_unit_price_eur"),
-            func.max(PriceObservation.unit_price_eur).label("max_unit_price_eur"),
-            func.bool_or(PriceObservation.is_special_sale).label("has_special_sale"),
-            func.count(func.distinct(PriceObservation.store_id)).label("store_count"),
-            func.count(PriceObservation.id).label("observation_count"),
+            PriceObservationDaily.observed_date.label("observed_date"),
+            PriceObservationDaily.price_eur_avg.label("average_price_eur"),
+            PriceObservationDaily.price_eur_min.label("min_price_eur"),
+            PriceObservationDaily.price_eur_max.label("max_price_eur"),
+            (
+                PriceObservationDaily.price_eur_min
+                != PriceObservationDaily.price_eur_max
+            ).label("has_store_price_variance"),
+            PriceObservationDaily.unit_price_eur_avg.label("average_unit_price_eur"),
+            PriceObservationDaily.unit_price_eur_min.label("min_unit_price_eur"),
+            PriceObservationDaily.unit_price_eur_max.label("max_unit_price_eur"),
+            PriceObservationDaily.is_special_sale.label("has_special_sale"),
+            PriceObservationDaily.observation_count.label("store_count"),
         )
-        .join(Retailer, Retailer.id == PriceObservation.retailer_id)
+        .join(Retailer, Retailer.id == PriceObservationDaily.retailer_id)
         .join(
             latest_observations,
-            (latest_observations.c.retailer_id == PriceObservation.retailer_id)
-            & (latest_observations.c.observed_date == PriceObservation.observed_date),
+            (latest_observations.c.retailer_id == PriceObservationDaily.retailer_id)
+            & (
+                latest_observations.c.observed_date
+                == PriceObservationDaily.observed_date
+            ),
         )
-        .where(PriceObservation.product_id == product_id)
-        .group_by(Retailer.id, Retailer.name, latest_observations.c.observed_date)
-        .order_by(func.avg(PriceObservation.price_eur))
+        .where(PriceObservationDaily.product_id == product_id)
+        .order_by(PriceObservationDaily.price_eur_avg)
     )
 
     rows = session.exec(statement).all()
@@ -378,8 +383,7 @@ def grouped_product_price_observations(product_id: uuid.UUID, session: SessionDe
             min_unit_price_eur=min_unit_price_eur,
             max_unit_price_eur=max_unit_price_eur,
             store_count=store_count,
-            observation_count=observation_count,
-            has_store_price_variance=price_variant_count > 1,
+            has_store_price_variance=has_store_price_variance,
             has_special_sale=bool(has_special_sale),
         )
         for (
@@ -388,12 +392,11 @@ def grouped_product_price_observations(product_id: uuid.UUID, session: SessionDe
             average_price_eur,
             min_price_eur,
             max_price_eur,
-            price_variant_count,
+            has_store_price_variance,
             average_unit_price_eur,
             min_unit_price_eur,
             max_unit_price_eur,
             has_special_sale,
             store_count,
-            observation_count,
         ) in rows
     ]

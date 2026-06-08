@@ -36,14 +36,6 @@ PRIMARY_NAME_RETAILER_PRIORITY = {
 }
 
 
-def parse_import_date(date: datetime.date | str | None) -> datetime.date:
-    if date is None:
-        return datetime.date.today()
-    if isinstance(date, datetime.date):
-        return date
-    return datetime.date.fromisoformat(date)
-
-
 class PriceCsvImportJob:
     def supported_retailer_ids(self) -> list[uuid.UUID]:
         return [retailer_id for retailer_id, _, _ in self._retailer_imports()]

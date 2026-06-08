@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Column, Numeric, UniqueConstraint
+from sqlalchemy import Boolean, Column, Index, Numeric, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -60,6 +60,11 @@ class PriceObservation(PriceObservationBase, table=True):
             "retailer_product_code",
             "product_id",
             name="uq_price_observation_retailer_store_date_code_product",
+        ),
+        Index(
+            "ix_priceobservation_retailer_code",
+            "retailer_id",
+            "retailer_product_code",
         ),
     )
 

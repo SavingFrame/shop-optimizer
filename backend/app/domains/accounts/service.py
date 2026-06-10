@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.security import get_password_hash, verify_password
-from app.models.user import User, UserCreate, UserUpdate
+from app.domains.accounts.models import User, UserCreate, UserUpdate
 
 
 def _build_user(user_create: UserCreate) -> User:

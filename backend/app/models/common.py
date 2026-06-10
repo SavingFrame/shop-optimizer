@@ -1,11 +1,3 @@
-from datetime import datetime, timezone
+from app.domains.common.models import Message, get_datetime_utc
 
-from sqlmodel import SQLModel
-
-
-def get_datetime_utc() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-class Message(SQLModel):
-    message: str
+__all__ = ["Message", "get_datetime_utc"]

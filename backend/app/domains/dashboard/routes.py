@@ -17,7 +17,12 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 async def read_price_movers(session: SessionDep, limit: int = 10):
     bounded_limit = min(max(limit, 1), 50)
 
-    current_date = date.today()
+    current_date = await session.exec(
+        select(PriceObservationDaily.observed_date)
+        .order_by(PriceObservationDaily.observed_date.desc())
+        .limit(1)
+    )
+    current_date = current_date.one()
     previous_date = current_date - timedelta(days=1)
 
     current_prices = (
@@ -67,16 +72,20 @@ async def read_price_movers(session: SessionDep, limit: int = 10):
         .where(previous_prices.c.previous_price_eur > 0)
     )
 
-    price_drops = (await session.exec(
-        base_statement.where(absolute_change < 0)
-        .order_by(percent_change.asc(), absolute_change.asc())
-        .limit(bounded_limit),
-    )).all()
-    price_increases = (await session.exec(
-        base_statement.where(absolute_change > 0)
-        .order_by(percent_change.desc(), absolute_change.desc())
-        .limit(bounded_limit),
-    )).all()
+    price_drops = (
+        await session.exec(
+            base_statement.where(absolute_change < 0)
+            .order_by(percent_change.asc(), absolute_change.asc())
+            .limit(bounded_limit),
+        )
+    ).all()
+    price_increases = (
+        await session.exec(
+            base_statement.where(absolute_change > 0)
+            .order_by(percent_change.desc(), absolute_change.desc())
+            .limit(bounded_limit),
+        )
+    ).all()
 
     return PriceMoversPublic(
         current_date=current_date,

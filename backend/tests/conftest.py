@@ -1,26 +1,32 @@
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, delete
+from sqlmodel import Session, SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.core.db import engine, init_db
+from app.core.db import async_engine, engine, init_db
 from app.main import app
-from app.models.user import User
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
 
 
 @pytest.fixture(scope="session", autouse=True)
 def db() -> Generator[Session, None, None]:
+    SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         init_db(session)
         yield session
-        statement = delete(User)
-        session.execute(statement)
-        session.commit()
+    SQLModel.metadata.drop_all(engine)
+
+
+@pytest_asyncio.fixture
+async def async_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSession(async_engine) as session:
+        yield session
 
 
 @pytest.fixture(scope="module")

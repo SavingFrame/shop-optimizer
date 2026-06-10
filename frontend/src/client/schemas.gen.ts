@@ -149,15 +149,8 @@ export const NestedPriceObservationSchema = {
             description: 'Product name exactly as it appeared in the source price list.'
         },
         price_eur: {
-            anyOf: [
-                {
-                    type: 'string',
-                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
-                },
-                {
-                    type: 'null'
-                }
-            ],
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Price Eur',
             description: 'Current product price from the source price list.'
         },
@@ -199,7 +192,7 @@ export const NestedPriceObservationSchema = {
         }
     },
     type: 'object',
-    required: ['product_id', 'retailer_id', 'store_id', 'observed_date', 'retailer_product_code', 'source_product_name', 'unit_price_eur', 'id', 'retailer', 'store'],
+    required: ['product_id', 'retailer_id', 'store_id', 'observed_date', 'retailer_product_code', 'source_product_name', 'price_eur', 'unit_price_eur', 'id', 'retailer', 'store'],
     title: 'NestedPriceObservation'
 } as const;
 
@@ -311,31 +304,6 @@ export const PriceMoversPublicSchema = {
     title: 'PriceMoversPublic'
 } as const;
 
-export const PrivateUserCreateSchema = {
-    properties: {
-        email: {
-            type: 'string',
-            title: 'Email'
-        },
-        password: {
-            type: 'string',
-            title: 'Password'
-        },
-        full_name: {
-            type: 'string',
-            title: 'Full Name'
-        },
-        is_verified: {
-            type: 'boolean',
-            title: 'Is Verified',
-            default: false
-        }
-    },
-    type: 'object',
-    required: ['email', 'password', 'full_name'],
-    title: 'PrivateUserCreate'
-} as const;
-
 export const ProductListBaseSchema = {
     properties: {
         name: {
@@ -369,6 +337,21 @@ export const ProductListItemAlternativeCreateSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Product Id'
+        },
+        similarity_score: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Similarity Score'
         }
     },
     type: 'object',
@@ -387,6 +370,19 @@ export const ProductListItemAlternativeDetailPublicSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Product Id'
+        },
+        similarity_score: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Similarity Score',
+            description: 'Similarity score captured when this alternative was selected.'
         },
         created_at: {
             type: 'string',
@@ -416,6 +412,24 @@ export const ProductListItemAlternativesBulkCreateSchema = {
             },
             type: 'array',
             title: 'Product Ids'
+        },
+        similarity_scores: {
+            additionalProperties: {
+                anyOf: [
+                    {
+                        type: 'number'
+                    },
+                    {
+                        type: 'string',
+                        pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                    }
+                ]
+            },
+            propertyNames: {
+                format: 'uuid'
+            },
+            type: 'object',
+            title: 'Similarity Scores'
         }
     },
     type: 'object',
@@ -1251,10 +1265,6 @@ export const RetailerPriceObservationSummarySchema = {
             type: 'integer',
             title: 'Store Count'
         },
-        observation_count: {
-            type: 'integer',
-            title: 'Observation Count'
-        },
         has_store_price_variance: {
             type: 'boolean',
             title: 'Has Store Price Variance'
@@ -1265,7 +1275,7 @@ export const RetailerPriceObservationSummarySchema = {
         }
     },
     type: 'object',
-    required: ['retailer', 'observed_date', 'average_price_eur', 'min_price_eur', 'max_price_eur', 'average_unit_price_eur', 'min_unit_price_eur', 'max_unit_price_eur', 'store_count', 'observation_count', 'has_store_price_variance', 'has_special_sale'],
+    required: ['retailer', 'observed_date', 'average_price_eur', 'min_price_eur', 'max_price_eur', 'average_unit_price_eur', 'min_unit_price_eur', 'max_unit_price_eur', 'store_count', 'has_store_price_variance', 'has_special_sale'],
     title: 'RetailerPriceObservationSummary'
 } as const;
 

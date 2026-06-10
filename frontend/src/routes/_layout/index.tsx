@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   BadgeEuro,
   Clock3,
-  ImageIcon,
   type LucideIcon,
   PackageOpen,
   ReceiptText,
@@ -13,6 +12,7 @@ import {
   Sparkles,
   Store,
 } from "lucide-react"
+import { useState } from "react"
 
 import { DashboardService, type PriceMover } from "@/client"
 import { Badge } from "@/components/ui/badge"
@@ -428,13 +428,16 @@ type ProductThumbProps = {
 }
 
 function ProductThumb({ imageUrl, name }: ProductThumbProps) {
-  if (imageUrl) {
+  const [hasError, setHasError] = useState(false)
+
+  if (imageUrl && !hasError) {
     return (
-      <div className="flex size-16 items-center justify-center overflow-hidden rounded-2xl border bg-muted/40">
+      <div className="flex size-14 items-center justify-center overflow-hidden rounded-2xl border bg-muted/40">
         <img
           alt={name}
           className="h-full w-full object-contain p-2"
           loading="lazy"
+          onError={() => setHasError(true)}
           src={imageUrl}
         />
       </div>
@@ -442,8 +445,8 @@ function ProductThumb({ imageUrl, name }: ProductThumbProps) {
   }
 
   return (
-    <div className="flex size-16 items-center justify-center rounded-2xl border bg-muted/40 text-muted-foreground">
-      <ImageIcon className="size-6" />
+    <div className="flex size-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-sm font-semibold text-primary">
+      {getProductInitials(name)}
     </div>
   )
 }
@@ -478,6 +481,15 @@ function InfoTile({ icon: Icon, label, value }: InfoTileProps) {
       <p className="mt-1 font-semibold">{value}</p>
     </div>
   )
+}
+
+function getProductInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
 }
 
 function formatCount(value?: number) {

@@ -90,7 +90,7 @@ def test_kaufland_parser_normalizes_tab_delimited_columns():
     assert normalized.source_product_name == "Ajax za staklo window & shiny 750 ml"
     assert normalized.barcode == "3838447000195"
     assert normalized.brand == "Ajax"
-    assert normalized.net_quantity == "0.750"
+    assert normalized.net_quantity == Decimal("0.750")
     assert normalized.unit_of_measure == "KOM"
     assert normalized.category == "SREDSTVA ZA ČIŠĆENJE"
     assert normalized.price_eur == Decimal("1.29")

@@ -8,7 +8,6 @@ import {
   type LucideIcon,
   PackageOpen,
   PackageSearch,
-  Ruler,
   Store,
   Tags,
 } from "lucide-react"
@@ -88,6 +87,11 @@ function ProductDetailPage() {
   const product = productQuery.data
   const prices = pricesQuery.data ?? []
   const lowestPrice = useMemo(() => findLowestPrice(prices), [prices])
+  const priceSpread = useMemo(
+    () => formatObservationsPriceSpread(prices),
+    [prices],
+  )
+  const lowestPriceRetailer = lowestPrice?.retailer.name
   const productsBackSearch = useProductsBackSearch()
 
   if (productQuery.isPending) {
@@ -118,31 +122,22 @@ function ProductDetailPage() {
         </Link>
       </Button>
 
-      <ProductHero product={product} pricesCount={prices.length} />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Price history</CardTitle>
-          <CardDescription>
-            Daily average price by retailer. Hover a point to see the recorded
-            min and max range for that day.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PriceHistoryChart
-            isError={priceHistoryQuery.isError}
-            isPending={priceHistoryQuery.isPending}
-            points={priceHistoryQuery.data ?? []}
-          />
-        </CardContent>
-      </Card>
+      <ProductHero
+        currentPrice={lowestPrice?.price}
+        isPricePending={pricesQuery.isPending}
+        latestObservationDate={formatLatestDate(prices)}
+        lowestObservation={lowestPrice?.observation}
+        lowestPriceRetailer={lowestPriceRetailer}
+        pricesCount={prices.length}
+        product={product}
+      />
 
       <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
         <Card>
           <CardHeader>
             <CardTitle>Shop prices</CardTitle>
             <CardDescription>
-              Retailer prices grouped from the latest available observations.
+              Current retailer prices from the latest available observations.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -169,11 +164,7 @@ function ProductDetailPage() {
                 pricesQuery.isPending ? "Loading" : prices.length.toString()
               }
             />
-            <InfoTile
-              icon={Tags}
-              label="Lowest price"
-              value={lowestPrice ? formatCurrency(lowestPrice) : undefined}
-            />
+            <InfoTile icon={Tags} label="Price spread" value={priceSpread} />
             <InfoTile
               icon={CalendarDays}
               label="Latest observation"
@@ -182,6 +173,23 @@ function ProductDetailPage() {
           </CardContent>
         </Card>
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Price history</CardTitle>
+          <CardDescription>
+            Daily average price by retailer. Hover a point to see the recorded
+            min and max range for that day.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PriceHistoryChart
+            isError={priceHistoryQuery.isError}
+            isPending={priceHistoryQuery.isPending}
+            points={priceHistoryQuery.data ?? []}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -204,61 +212,88 @@ function ProductDetailPage() {
 }
 
 type ProductHeroProps = {
+  currentPrice?: string
+  isPricePending: boolean
+  latestObservationDate?: string
+  lowestObservation?: RetailerPriceObservationSummary
+  lowestPriceRetailer?: string
   pricesCount: number
   product: ProductPublic
 }
 
-function ProductHero({ pricesCount, product }: ProductHeroProps) {
-  return (
-    <section className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
-      <Card className="overflow-hidden bg-card/80">
-        <ProductImage imageUrl={product.image_url} name={product.name} />
-      </Card>
+function ProductHero({
+  currentPrice,
+  isPricePending,
+  latestObservationDate,
+  lowestObservation,
+  lowestPriceRetailer,
+  pricesCount,
+  product,
+}: ProductHeroProps) {
+  const formattedCurrentPrice = currentPrice
+    ? formatCurrency(currentPrice)
+    : undefined
 
-      <Card className="bg-card/80">
-        <CardHeader className="gap-4 p-6 sm:p-8">
-          <div className="flex flex-wrap gap-2">
-            {product.category && (
-              <Badge variant="secondary">{product.category}</Badge>
-            )}
-            {product.brand && <Badge variant="outline">{product.brand}</Badge>}
-          </div>
-          <div className="space-y-3">
-            <CardTitle className="text-3xl leading-tight sm:text-5xl">
-              {product.name}
-            </CardTitle>
-            <CardDescription className="text-base leading-7">
-              Compare current shop price observations for this normalized
-              product.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4 p-6 pt-0 sm:p-8 sm:pt-0">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <InfoTile
-              icon={PackageOpen}
-              label="Quantity"
-              value={product.net_quantity}
+  return (
+    <Card className="overflow-hidden bg-card/80">
+      <div className="grid gap-0 lg:grid-cols-[18rem_1fr] xl:grid-cols-[22rem_1fr]">
+        <ProductImage imageUrl={product.image_url} name={product.name} />
+
+        <div className="flex min-w-0 flex-col">
+          <CardHeader className="gap-4 p-5 sm:p-6">
+            <div className="flex flex-wrap gap-2">
+              {product.category && (
+                <Badge variant="secondary">{product.category}</Badge>
+              )}
+              {product.brand && (
+                <Badge variant="outline">{product.brand}</Badge>
+              )}
+            </div>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl leading-tight sm:text-4xl">
+                {product.name}
+              </CardTitle>
+              <CardDescription className="text-sm sm:text-base">
+                Latest observed price and product details.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5 pt-0 sm:p-6 sm:pt-0">
+            <div className="grid gap-3 md:grid-cols-[1.15fr_1fr]">
+              <CurrentPriceTile
+                isPending={isPricePending}
+                latestObservationDate={latestObservationDate}
+                observation={lowestObservation}
+                price={formattedCurrentPrice}
+                retailerName={lowestPriceRetailer}
+                retailersCount={pricesCount}
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoTile
+                  icon={PackageOpen}
+                  label="Package"
+                  value={formatPackageSize(product)}
+                />
+                <InfoTile
+                  icon={Barcode}
+                  label="Barcode"
+                  value={product.barcode}
+                />
+                <InfoTile
+                  icon={Store}
+                  label="Retailer prices"
+                  value={pricesCount.toString()}
+                />
+              </div>
+            </div>
+            <AddProductToListDialog
+              productId={product.id}
+              productName={product.name}
             />
-            <InfoTile
-              icon={Ruler}
-              label="Unit"
-              value={product.unit_of_measure}
-            />
-            <InfoTile icon={Barcode} label="Barcode" value={product.barcode} />
-            <InfoTile
-              icon={Store}
-              label="Retailer prices"
-              value={pricesCount.toString()}
-            />
-          </div>
-          <AddProductToListDialog
-            productId={product.id}
-            productName={product.name}
-          />
-        </CardContent>
-      </Card>
-    </section>
+          </CardContent>
+        </div>
+      </div>
+    </Card>
   )
 }
 
@@ -446,10 +481,15 @@ function PriceObservations({
 
   return (
     <div className="space-y-3">
-      {sortedObservations.map((observation) => (
+      {sortedObservations.map((observation, index) => (
         <PriceObservationRow
+          isBestPrice={index === 0}
           key={`${observation.retailer.id}-${observation.observed_date}`}
           observation={observation}
+          priceDelta={formatPriceDeltaFromBest(
+            getAveragePrice(observation),
+            getAveragePrice(sortedObservations[0]),
+          )}
         />
       ))}
     </div>
@@ -508,6 +548,10 @@ function PriceHistoryChart({
   points,
 }: PriceHistoryChartProps) {
   const chartData = useMemo(() => buildPriceHistoryChartData(points), [points])
+  const priceDomain = useMemo(
+    () => getPriceHistoryDomain(chartData.rows, chartData.series),
+    [chartData],
+  )
 
   if (isPending) {
     return <div className="h-80 animate-pulse rounded-2xl bg-background/60" />
@@ -553,6 +597,7 @@ function PriceHistoryChart({
             />
             <YAxis
               axisLine={false}
+              domain={priceDomain}
               tickFormatter={formatChartCurrency}
               tickLine={false}
               width={72}
@@ -702,11 +747,39 @@ function getRetailerPriceDataKey(retailerId: string) {
   return `retailer_${retailerId.replace(/-/g, "_")}`
 }
 
-type PriceObservationRowProps = {
-  observation: RetailerPriceObservationSummary
+function getPriceHistoryDomain(
+  rows: Array<PriceHistoryDatum>,
+  series: Array<PriceHistorySeries>,
+): [number, number] | ["auto", "auto"] {
+  const values = rows.flatMap((row) =>
+    series
+      .map((item) => row[item.dataKey])
+      .filter((value): value is number => typeof value === "number"),
+  )
+
+  if (values.length === 0) {
+    return ["auto", "auto"]
+  }
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const spread = Math.max(max - min, 0.1)
+  const padding = spread * 0.35
+
+  return [Math.max(0, min - padding), max + padding]
 }
 
-function PriceObservationRow({ observation }: PriceObservationRowProps) {
+type PriceObservationRowProps = {
+  isBestPrice: boolean
+  observation: RetailerPriceObservationSummary
+  priceDelta?: string
+}
+
+function PriceObservationRow({
+  isBestPrice,
+  observation,
+  priceDelta,
+}: PriceObservationRowProps) {
   const retailPrice = getAveragePrice(observation)
   const retailPriceRange = formatPriceRange(
     getMinPrice(observation),
@@ -718,12 +791,19 @@ function PriceObservationRow({ observation }: PriceObservationRowProps) {
   )
 
   return (
-    <div className="rounded-2xl border bg-background/60 p-4">
+    <div
+      className={
+        isBestPrice
+          ? "rounded-2xl border border-primary/40 bg-primary/10 p-4"
+          : "rounded-2xl border bg-background/60 p-4"
+      }
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold">{observation.retailer.name}</p>
             <Badge variant="secondary">{observation.store_count} stores</Badge>
+            {isBestPrice && <Badge>Best price</Badge>}
             {observation.has_store_price_variance && (
               <Badge variant="outline">Price varies by store</Badge>
             )}
@@ -733,7 +813,7 @@ function PriceObservationRow({ observation }: PriceObservationRowProps) {
           </div>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span>{observation.observed_date}</span>
-            <span>{observation.observation_count} observations</span>
+            <span>Latest observation</span>
           </div>
         </div>
 
@@ -744,11 +824,66 @@ function PriceObservationRow({ observation }: PriceObservationRowProps) {
           <p className="text-sm text-muted-foreground">
             {formatCurrency(observation.average_unit_price_eur)} avg per unit
           </p>
+          {!isBestPrice && priceDelta && (
+            <p className="text-sm font-medium text-muted-foreground">
+              {priceDelta} vs best
+            </p>
+          )}
           <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
             {retailPriceRange && <span>Price range {retailPriceRange}</span>}
             {unitPriceRange && <span>Unit range {unitPriceRange}</span>}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+type CurrentPriceTileProps = {
+  isPending: boolean
+  latestObservationDate?: string
+  observation?: RetailerPriceObservationSummary
+  price?: string
+  retailerName?: string
+  retailersCount: number
+}
+
+function CurrentPriceTile({
+  isPending,
+  latestObservationDate,
+  observation,
+  price,
+  retailerName,
+  retailersCount,
+}: CurrentPriceTileProps) {
+  return (
+    <div className="flex min-h-44 flex-col justify-between rounded-2xl border border-primary/30 bg-primary/10 p-5">
+      <div>
+        <Tags className="mb-3 size-5 text-primary" />
+        <p className="text-sm text-muted-foreground">
+          Current lowest price{retailerName ? ` at ${retailerName}` : ""}
+        </p>
+        <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
+          <p className="text-4xl font-semibold tracking-tight sm:text-5xl">
+            {isPending ? "Loading" : price || "Not available"}
+          </p>
+          {observation?.average_unit_price_eur && (
+            <p className="pb-1 text-sm text-muted-foreground">
+              {formatCurrency(observation.average_unit_price_eur)} per unit
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+        <Badge variant="secondary">
+          {isPending ? "Loading retailers" : `${retailersCount} retailers`}
+        </Badge>
+        {observation?.store_count && (
+          <Badge variant="secondary">{observation.store_count} stores</Badge>
+        )}
+        {latestObservationDate && (
+          <Badge variant="outline">Updated {latestObservationDate}</Badge>
+        )}
       </div>
     </div>
   )
@@ -764,10 +899,10 @@ function ProductImage({ imageUrl, name }: ProductImageProps) {
 
   if (imageUrl && !hasError) {
     return (
-      <div className="flex aspect-square items-center justify-center bg-muted/40">
+      <div className="flex h-72 items-center justify-center bg-muted/40 sm:h-80 lg:h-full lg:max-h-[28rem]">
         <img
           alt={name}
-          className="h-full w-full object-contain p-8"
+          className="h-full w-full object-contain p-6"
           loading="lazy"
           onError={() => setHasError(true)}
           src={imageUrl}
@@ -777,7 +912,7 @@ function ProductImage({ imageUrl, name }: ProductImageProps) {
   }
 
   return (
-    <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-background">
+    <div className="flex h-72 items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-background sm:h-80 lg:h-full lg:max-h-[28rem]">
       <div className="flex size-28 items-center justify-center rounded-[2rem] bg-background/80 text-primary shadow-xl shadow-primary/10">
         <ImageIcon className="size-12" />
       </div>
@@ -879,9 +1014,15 @@ function compareObservations(
 
 function findLowestPrice(observations: Array<RetailerPriceObservationSummary>) {
   return observations
-    .map(getMinPrice)
-    .filter((price): price is string => Boolean(price))
-    .sort((first, second) => Number(first) - Number(second))[0]
+    .map((observation) => {
+      const price = getMinPrice(observation)
+
+      return price
+        ? { observation, price, retailer: observation.retailer }
+        : undefined
+    })
+    .filter((price): price is NonNullable<typeof price> => Boolean(price))
+    .sort((first, second) => Number(first.price) - Number(second.price))[0]
 }
 
 function parseNullableNumber(value?: string | null) {
@@ -936,6 +1077,65 @@ function formatCurrency(value: string) {
     currency: "EUR",
     style: "currency",
   }).format(Number(value))
+}
+
+function formatPackageSize(product: ProductPublic) {
+  if (!product.net_quantity && !product.unit_of_measure) {
+    return undefined
+  }
+
+  return [formatQuantity(product.net_quantity), product.unit_of_measure]
+    .filter(Boolean)
+    .join(" × ")
+}
+
+function formatQuantity(value?: string | null) {
+  if (!value) {
+    return undefined
+  }
+
+  return new Intl.NumberFormat("hr-HR", {
+    maximumFractionDigits: 3,
+  }).format(Number(value.replace(",", ".")))
+}
+
+function formatObservationsPriceSpread(
+  observations: Array<RetailerPriceObservationSummary>,
+) {
+  const prices = observations
+    .map(getAveragePrice)
+    .filter((price): price is string => Boolean(price))
+    .sort((first, second) => Number(first) - Number(second))
+
+  const minPrice = prices[0]
+  const maxPrice = prices[prices.length - 1]
+
+  if (!minPrice || !maxPrice) {
+    return undefined
+  }
+
+  if (minPrice === maxPrice) {
+    return formatCurrency(minPrice)
+  }
+
+  return `${formatCurrency(minPrice)} to ${formatCurrency(maxPrice)}`
+}
+
+function formatPriceDeltaFromBest(
+  price?: string | null,
+  bestPrice?: string | null,
+) {
+  if (!price || !bestPrice) {
+    return undefined
+  }
+
+  const delta = Number(price) - Number(bestPrice)
+
+  if (delta <= 0) {
+    return undefined
+  }
+
+  return `+${formatCurrency(delta.toString())}`
 }
 
 function formatLatestDate(

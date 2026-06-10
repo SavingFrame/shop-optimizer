@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductListsCreateProductListData, ProductListsCreateProductListResponse, ProductListsReadProductListsData, ProductListsReadProductListsResponse, ProductListsCreateProductListFromReceiptData, ProductListsCreateProductListFromReceiptResponse, ProductListsReadProductListData, ProductListsReadProductListResponse, ProductListsUpdateProductListData, ProductListsUpdateProductListResponse, ProductListsDeleteProductListData, ProductListsDeleteProductListResponse, ProductListsProductListRetailPriceHistoryChartData, ProductListsProductListRetailPriceHistoryChartResponse, ProductListsReadProductListItemsData, ProductListsReadProductListItemsResponse, ProductListsCreateProductListItemData, ProductListsCreateProductListItemResponse, ProductListsUpdateProductListItemData, ProductListsUpdateProductListItemResponse, ProductListsDeleteProductListItemData, ProductListsDeleteProductListItemResponse, ProductListsReadProductListItemAlternativesData, ProductListsReadProductListItemAlternativesResponse, ProductListsCreateProductListItemAlternativeData, ProductListsCreateProductListItemAlternativeResponse, ProductListsBulkCreateProductListItemAlternativesData, ProductListsBulkCreateProductListItemAlternativesResponse, ProductListsDeleteProductListItemAlternativeData, ProductListsDeleteProductListItemAlternativeResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsReadSimilarProductsData, ProductsReadSimilarProductsResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsDeleteReceiptData, ReceiptsDeleteReceiptResponse, ReceiptsReadReceiptItemsData, ReceiptsReadReceiptItemsResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { DashboardReadPriceMoversData, DashboardReadPriceMoversResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, ProductListsCreateProductListData, ProductListsCreateProductListResponse, ProductListsReadProductListsData, ProductListsReadProductListsResponse, ProductListsCreateProductListFromReceiptData, ProductListsCreateProductListFromReceiptResponse, ProductListsReadProductListData, ProductListsReadProductListResponse, ProductListsUpdateProductListData, ProductListsUpdateProductListResponse, ProductListsDeleteProductListData, ProductListsDeleteProductListResponse, ProductListsProductListRetailPriceHistoryChartData, ProductListsProductListRetailPriceHistoryChartResponse, ProductListsReadProductListItemsData, ProductListsReadProductListItemsResponse, ProductListsCreateProductListItemData, ProductListsCreateProductListItemResponse, ProductListsUpdateProductListItemData, ProductListsUpdateProductListItemResponse, ProductListsDeleteProductListItemData, ProductListsDeleteProductListItemResponse, ProductListsReadProductListItemAlternativesData, ProductListsReadProductListItemAlternativesResponse, ProductListsCreateProductListItemAlternativeData, ProductListsCreateProductListItemAlternativeResponse, ProductListsBulkCreateProductListItemAlternativesData, ProductListsBulkCreateProductListItemAlternativesResponse, ProductListsDeleteProductListItemAlternativeData, ProductListsDeleteProductListItemAlternativeResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsReadSimilarProductsData, ProductsReadSimilarProductsResponse, ProductsProductPriceObservationsData, ProductsProductPriceObservationsResponse, ProductsProductDailyRetailPriceHistoryChartData, ProductsProductDailyRetailPriceHistoryChartResponse, ProductsGroupedProductPriceObservationsData, ProductsGroupedProductPriceObservationsResponse, ReceiptsCreateReceiptData, ReceiptsCreateReceiptResponse, ReceiptsReadReceiptsData, ReceiptsReadReceiptsResponse, ReceiptsReadReceiptData, ReceiptsReadReceiptResponse, ReceiptsUpdateReceiptData, ReceiptsUpdateReceiptResponse, ReceiptsDeleteReceiptData, ReceiptsDeleteReceiptResponse, ReceiptsReadReceiptItemsData, ReceiptsReadReceiptItemsResponse, ReceiptsUpdateReceiptItemData, ReceiptsUpdateReceiptItemResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class DashboardService {
     /**
@@ -117,28 +117,6 @@ export class LoginService {
             path: {
                 email: data.email
             },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-}
-
-export class PrivateService {
-    /**
-     * Create User
-     * Create a new user.
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns UserPublic Successful Response
-     * @throws ApiError
-     */
-    public static createUser(data: PrivateCreateUserData): CancelablePromise<PrivateCreateUserResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/private/users',
-            body: data.requestBody,
-            mediaType: 'application/json',
             errors: {
                 422: 'Validation Error'
             }

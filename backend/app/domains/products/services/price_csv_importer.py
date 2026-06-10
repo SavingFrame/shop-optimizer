@@ -38,7 +38,7 @@ class NormalizedPriceRow:
     source_product_name: str
     barcode: str | None
     brand: str | None
-    net_quantity: str | None
+    net_quantity: Decimal | None
     unit_of_measure: str | None
     category: str | None
     price_eur: Decimal | None
@@ -75,7 +75,7 @@ class BaseRetailerPriceCsvParser:
             source_product_name=name,
             barcode=self.clean(row.get(self.columns["barcode"])),
             brand=self.clean(row.get(self.columns["brand"])),
-            net_quantity=self.clean(row.get(self.columns["net_quantity"])),
+            net_quantity=self.parse_decimal(row.get(self.columns["net_quantity"])),
             unit_of_measure=self.clean(row.get(self.columns["unit_of_measure"])),
             category=self._normalize_category(row.get(self.columns["category"])),
             price_eur=(

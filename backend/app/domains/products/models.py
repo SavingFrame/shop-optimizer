@@ -2,6 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from sqlalchemy import Column, Numeric
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -34,10 +35,10 @@ class ProductBase(SQLModel):
         max_length=64,
         description="Original CSV column: marka or MARKA PROIZVODA.",
     )
-    net_quantity: str | None = Field(
+    net_quantity: Decimal | None = Field(
         default=None,
-        max_length=32,
-        description="Raw net quantity from the CSV. Original CSV column: neto količina or NETO KOLIČINA.",
+        sa_column=Column(Numeric(12, 5), nullable=True),
+        description="Net quantity from the CSV. Original CSV column: neto količina or NETO KOLIČINA.",
     )
     unit_of_measure: str | None = Field(
         default=None,

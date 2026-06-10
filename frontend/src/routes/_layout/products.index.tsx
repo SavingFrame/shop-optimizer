@@ -1,12 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import {
-  Barcode,
-  ChevronRight,
-  ImageIcon,
-  PackageSearch,
-  Search,
-} from "lucide-react"
+import { ChevronRight, PackageSearch, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 
@@ -509,7 +503,7 @@ function ProductCard({ product }: ProductCardProps) {
     <Link
       to="/products/$productId"
       params={{ productId: product.id }}
-      className="group rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="group rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       id={getProductCardElementId(product.id)}
       onClick={() => saveProductsListPosition(product.id)}
     >
@@ -535,14 +529,7 @@ function ProductCard({ product }: ProductCardProps) {
               label="Latest price"
               value={formatOptionalCurrency(product.latest_price_eur)}
             />
-            <ProductMeta label="Quantity" value={product.net_quantity} />
-            <ProductMeta label="Unit" value={product.unit_of_measure} />
-            {product.barcode && (
-              <div className="flex items-center gap-2">
-                <Barcode className="size-4" />
-                <span className="truncate">{product.barcode}</span>
-              </div>
-            )}
+            <ProductMeta label="Package" value={formatPackageSize(product)} />
           </div>
 
           <div className="flex items-center justify-between border-t pt-4 text-sm font-medium text-primary">
@@ -578,9 +565,9 @@ function ProductImage({ imageUrl, name }: ProductImageProps) {
   }
 
   return (
-    <div className="flex h-36 items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-background">
-      <div className="flex size-20 items-center justify-center rounded-3xl bg-background/80 text-primary shadow-lg shadow-primary/10">
-        <ImageIcon className="size-9" />
+    <div className="flex h-36 items-center justify-center bg-primary/10 text-lg font-semibold text-primary">
+      <div className="flex size-20 items-center justify-center rounded-3xl border border-primary/20 bg-background/60">
+        {getProductInitials(name)}
       </div>
     </div>
   )
@@ -602,6 +589,33 @@ function ProductMeta({ label, value }: ProductMetaProps) {
       <span className="truncate font-medium text-foreground">{value}</span>
     </div>
   )
+}
+
+function formatPackageSize(product: ProductPublic) {
+  if (!product.net_quantity && !product.unit_of_measure) {
+    return undefined
+  }
+
+  const quantity = product.net_quantity
+    ? new Intl.NumberFormat("hr-HR", {
+        maximumFractionDigits: 3,
+      }).format(parseProductNumber(product.net_quantity))
+    : undefined
+
+  return [quantity, product.unit_of_measure].filter(Boolean).join(" × ")
+}
+
+function parseProductNumber(value: string) {
+  return Number(value.replace(",", "."))
+}
+
+function getProductInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
 }
 
 function formatOptionalCurrency(value?: string | null) {

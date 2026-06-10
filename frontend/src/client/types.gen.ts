@@ -42,7 +42,7 @@ export type NestedPriceObservation = {
     /**
      * Current product price from the source price list.
      */
-    price_eur?: (string | null);
+    price_eur: string;
     /**
      * Original CSV column: cijena za jedinicu mjere (EUR) or CIJENA ZA JEDINICU MJERE.
      */
@@ -83,13 +83,6 @@ export type PriceMoversPublic = {
     price_increases: Array<PriceMover>;
 };
 
-export type PrivateUserCreate = {
-    email: string;
-    password: string;
-    full_name: string;
-    is_verified?: boolean;
-};
-
 export type ProductListBase = {
     /**
      * User-facing product list name, for example Weekly groceries.
@@ -109,6 +102,9 @@ export type ProductListItemAlternativeCreate = {
 export type ProductListItemAlternativeDetailPublic = {
     product_list_item_id: string;
     product_id: string;
+    /**
+     * Similarity score captured when this alternative was selected.
+     */
     similarity_score?: (string | null);
     created_at?: string;
     id: string;
@@ -117,7 +113,9 @@ export type ProductListItemAlternativeDetailPublic = {
 
 export type ProductListItemAlternativesBulkCreate = {
     product_ids: Array<(string)>;
-    similarity_scores?: Record<string, (number | string)>;
+    similarity_scores?: {
+        [key: string]: (number | string);
+    };
 };
 
 export type ProductListItemAlternativesBulkCreateResult = {
@@ -333,7 +331,6 @@ export type RetailerPriceObservationSummary = {
     min_unit_price_eur: string;
     max_unit_price_eur: string;
     store_count: number;
-    observation_count: number;
     has_store_price_variance: boolean;
     has_special_sale: boolean;
 };
@@ -464,12 +461,6 @@ export type LoginRecoverPasswordHtmlContentData = {
 };
 
 export type LoginRecoverPasswordHtmlContentResponse = (string);
-
-export type PrivateCreateUserData = {
-    requestBody: PrivateUserCreate;
-};
-
-export type PrivateCreateUserResponse = (UserPublic);
 
 export type ProductListsCreateProductListData = {
     requestBody: ProductListBase;

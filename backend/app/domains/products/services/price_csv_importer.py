@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 from app.domains.products.aliases import ProductAlias, ProductAliasSource
 from app.domains.products.models import Product
 from app.domains.products.price_observation import PriceObservation
-from app.domains.products.retailers import ReailerEnum
+from app.domains.products.retailers import RetailerEnum
 from app.domains.products.stores import Store
 
 logger = logging.getLogger(__name__)
@@ -109,8 +109,8 @@ class BaseRetailerPriceCsvParser:
 
 
 class LidlPriceCsvParser(BaseRetailerPriceCsvParser):
-    retailer_id = ReailerEnum.LIDL.value.id
-    retailer_name = ReailerEnum.LIDL.value.name
+    retailer_id = RetailerEnum.LIDL.value.id
+    retailer_name = RetailerEnum.LIDL.value.name
     delimiter = ","
     columns = {
         "name": "NAZIV",
@@ -127,8 +127,8 @@ class LidlPriceCsvParser(BaseRetailerPriceCsvParser):
 
 
 class SparPriceCsvParser(BaseRetailerPriceCsvParser):
-    retailer_id = ReailerEnum.SPAR.value.id
-    retailer_name = ReailerEnum.SPAR.value.name
+    retailer_id = RetailerEnum.SPAR.value.id
+    retailer_name = RetailerEnum.SPAR.value.name
     delimiter = ";"
     columns = {
         "name": "naziv",
@@ -145,8 +145,8 @@ class SparPriceCsvParser(BaseRetailerPriceCsvParser):
 
 
 class KauflandPriceCsvParser(BaseRetailerPriceCsvParser):
-    retailer_id = ReailerEnum.KAUFLAND.value.id
-    retailer_name = ReailerEnum.KAUFLAND.value.name
+    retailer_id = RetailerEnum.KAUFLAND.value.id
+    retailer_name = RetailerEnum.KAUFLAND.value.name
     delimiter = "\t"
     encoding = "utf-8-sig"
     columns = {

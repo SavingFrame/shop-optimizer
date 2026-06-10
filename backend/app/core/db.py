@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.domains.accounts import service as accounts_service
 from app.domains.accounts.models import UserCreate
 from app.domains.models import *  # noqa: F403
-from app.domains.products.retailers import ReailerEnum
+from app.domains.products.retailers import RetailerEnum
 
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 async_engine = create_async_engine(str(settings.SQLALCHEMY_DATABASE_URI))
@@ -47,7 +47,7 @@ def init_db(session: Session) -> None:
             is_superuser=True,
         )
         accounts_service.create_user_sync(session=session, user_create=user_in)
-    for retailer in ReailerEnum:
+    for retailer in RetailerEnum:
         get_or_create(
             session,
             Retailer,

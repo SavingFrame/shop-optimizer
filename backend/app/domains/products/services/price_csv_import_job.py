@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from app.core.db import engine
 from app.domains.products.aliases import ProductAlias, ProductAliasSource
 from app.domains.products.models import Product
-from app.domains.products.retailers import ReailerEnum
+from app.domains.products.retailers import RetailerEnum
 from app.domains.products.services.price_csv_importer import (
     BaseRetailerPriceCsvParser,
     KauflandPriceCsvParser,
@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 RetailerImport = tuple[uuid.UUID, BasePriceDownloader, BaseRetailerPriceCsvParser]
 PRIMARY_NAME_RETAILER_PRIORITY = {
-    ReailerEnum.KAUFLAND.value.id: 1,
-    ReailerEnum.SPAR.value.id: 2,
-    ReailerEnum.LIDL.value.id: 3,
+    RetailerEnum.KAUFLAND.value.id: 1,
+    RetailerEnum.SPAR.value.id: 2,
+    RetailerEnum.LIDL.value.id: 3,
 }
 
 
@@ -158,10 +158,10 @@ class PriceCsvImportJob:
 
     def _retailer_imports(self) -> Sequence[RetailerImport]:
         return [
-            (ReailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
-            (ReailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
+            (RetailerEnum.SPAR.value.id, SparPriceDownloader(), SparPriceCsvParser()),
+            (RetailerEnum.LIDL.value.id, LidlPriceDownloader(), LidlPriceCsvParser()),
             (
-                ReailerEnum.KAUFLAND.value.id,
+                RetailerEnum.KAUFLAND.value.id,
                 KauflandPriceDownloader(),
                 KauflandPriceCsvParser(),
             ),

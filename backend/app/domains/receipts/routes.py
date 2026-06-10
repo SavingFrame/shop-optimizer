@@ -4,39 +4,26 @@ from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import selectinload
-from sqlmodel import SQLModel, delete, func, select
+from sqlmodel import delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
-from app.domains.products.models import Product, ProductPublic
+from app.domains.products.models import Product
 from app.domains.receipts.models import (
     Receipt,
     ReceiptItem,
-    ReceiptItemPublic,
     ReceiptPublic,
     ReceiptStatus,
+)
+from app.domains.receipts.schemas import (
+    ReceiptItemReviewPublic,
+    ReceiptItemUpdate,
+    ReceiptsPublic,
+    ReceiptUpdate,
 )
 from app.domains.receipts.services.ingestion import receipt_ingestion_service
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
-
-
-class ReceiptItemReviewPublic(ReceiptItemPublic):
-    product: ProductPublic | None = None
-
-
-class ReceiptsPublic(SQLModel):
-    data: list[ReceiptPublic]
-    count: int
-
-
-class ReceiptUpdate(SQLModel):
-    status: ReceiptStatus | None = None
-
-
-class ReceiptItemUpdate(SQLModel):
-    product_id: uuid.UUID | None = None
-    is_skipped: bool | None = None
 
 
 @router.post("", response_model=ReceiptPublic)

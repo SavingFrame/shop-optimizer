@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from app.domains.products.retailers import ReailerEnum
+from app.domains.products.retailers import RetailerEnum
 from app.domains.products.services import price_downloader
 from app.domains.products.services.price_downloader import (
     KauflandPriceDownloader,
@@ -14,7 +14,7 @@ from app.domains.products.stores import Store
 
 def make_kaufland_store() -> Store:
     return Store(
-        retailer_id=ReailerEnum.KAUFLAND.value.id,
+        retailer_id=RetailerEnum.KAUFLAND.value.id,
         store_code="5930",
         name="Kaufland Jablanska 80",
         prefix="Hipermarket_Jablanska_ulica_br_80_Zagreb_5930_",
@@ -93,7 +93,7 @@ def test_lidl_missing_store_file_raises_store_not_found():
         archive_content=b"not used",
     )
     store = Store(
-        retailer_id=ReailerEnum.LIDL.value.id,
+        retailer_id=RetailerEnum.LIDL.value.id,
         store_code="250",
         name="Lidl Ljubljanska avenija",
         prefix="Supermarket 250_Ljubljanska avenija_2_10090_Zagreb_",

@@ -6,7 +6,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.domains.products.models import Product
 from app.domains.products.price_observation import PriceObservation
-from app.domains.products.retailers import ReailerEnum, Retailer
+from app.domains.products.retailers import Retailer, RetailerEnum
 from app.domains.products.services.price_csv_importer import (
     KauflandPriceCsvParser,
     LidlPriceCsvParser,
@@ -27,12 +27,12 @@ def make_session() -> Session:
 
 def make_store(session: Session, store_code: str) -> Store:
     retailer = Retailer(
-        id=ReailerEnum.LIDL.value.id,
-        name=ReailerEnum.LIDL.value.name,
+        id=RetailerEnum.LIDL.value.id,
+        name=RetailerEnum.LIDL.value.name,
     )
     session.merge(retailer)
     store = Store(
-        retailer_id=ReailerEnum.LIDL.value.id,
+        retailer_id=RetailerEnum.LIDL.value.id,
         store_code=store_code,
         name=f"Lidl {store_code}",
     )

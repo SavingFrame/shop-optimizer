@@ -1,12 +1,12 @@
 import uuid
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import case, literal, nullslast, true
 from sqlalchemy.orm import selectinload
-from sqlmodel import Field, SQLModel, delete, func, select
+from sqlmodel import delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.domains.common.models import get_datetime_utc
@@ -16,63 +16,27 @@ from app.domains.product_lists.models import (
     ProductListItem,
     ProductListItemAlternative,
     ProductListItemAlternativeCreate,
-    ProductListItemAlternativePublic,
     ProductListItemAlternativesBulkCreate,
-    ProductListItemPublic,
     ProductListPublic,
     ProductListsPublic,
 )
-from app.domains.products.models import Product, ProductPublic
+from app.domains.product_lists.schemas import (
+    ProductListItemAlternativeDetailPublic,
+    ProductListItemAlternativesBulkCreateResult,
+    ProductListItemCreate,
+    ProductListItemDetailPublic,
+    ProductListItemUpdate,
+    ProductListRetailerPriceHistoryPoint,
+    ProductListUpdate,
+)
+from app.domains.products.models import Product
 from app.domains.products.price_observation import PriceObservation
-from app.domains.products.retailers import Retailer, RetailerPublic
+from app.domains.products.retailers import Retailer
 from app.domains.receipts.models import Receipt, ReceiptItem
 
 router = APIRouter(prefix="/product-lists", tags=["product-lists"])
 
 PRICE_HISTORY_STALENESS_DAYS = 30
-
-
-class ProductListUpdate(SQLModel):
-    name: str | None = None
-    description: str | None = None
-
-
-class ProductListItemCreate(SQLModel):
-    product_id: uuid.UUID
-    quantity: Decimal = Decimal("1")
-    note: str | None = None
-
-
-class ProductListItemUpdate(SQLModel):
-    quantity: Decimal | None = None
-    note: str | None = None
-
-
-class ProductListItemAlternativeDetailPublic(ProductListItemAlternativePublic):
-    product: ProductPublic
-
-
-class ProductListItemDetailPublic(ProductListItemPublic):
-    product: ProductPublic
-    alternatives: list[ProductListItemAlternativeDetailPublic] = Field(
-        default_factory=list
-    )
-
-
-class ProductListItemAlternativesBulkCreateResult(SQLModel):
-    data: list[ProductListItemAlternativeDetailPublic]
-    created_count: int
-    skipped_count: int
-
-
-class ProductListRetailerPriceHistoryPoint(SQLModel):
-    retailer: RetailerPublic
-    observed_date: date
-    total_price_eur: Decimal
-    matched_item_count: int
-    total_item_count: int
-    has_missing_prices: bool
-    has_special_sale: bool
 
 
 @router.post("", response_model=ProductListPublic)

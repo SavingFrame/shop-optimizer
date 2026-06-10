@@ -1,24 +1,24 @@
 import uuid
-from datetime import date
 from decimal import Decimal
-from typing import ClassVar
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import case, desc, or_
 from sqlalchemy.orm import selectinload
-from sqlmodel import SQLModel, func, select
+from sqlmodel import func, select
 
 from app.api.deps import SessionDep
 from app.domains.products.aliases import ProductAlias
 from app.domains.products.models import Product, ProductPublic, ProductsPublic
-from app.domains.products.price_observation import (
-    PriceObservation,
-    PriceObservationPublic,
-)
+from app.domains.products.price_observation import PriceObservation
 from app.domains.products.price_observation_daily import PriceObservationDaily
-from app.domains.products.retailers import Retailer, RetailerPublic
+from app.domains.products.retailers import Retailer
+from app.domains.products.schemas import (
+    NestedPriceObservation,
+    RetailerDailyRetailPriceHistoryPoint,
+    RetailerPriceObservationSummary,
+    SimilarProductPublic,
+)
 from app.domains.products.services.similarity import product_similarity_service
-from app.domains.products.stores import StorePublic
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -205,44 +205,6 @@ async def read_product(product_id: uuid.UUID, session: SessionDep):
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
-
-
-class NestedPriceObservation(PriceObservationPublic):
-    product: ClassVar
-    retailer: RetailerPublic
-    store: StorePublic
-
-
-class RetailerPriceObservationSummary(SQLModel):
-    retailer: RetailerPublic
-    observed_date: date
-    average_price_eur: Decimal | None
-    min_price_eur: Decimal | None
-    max_price_eur: Decimal | None
-    average_unit_price_eur: Decimal
-    min_unit_price_eur: Decimal
-    max_unit_price_eur: Decimal
-    store_count: int
-    has_store_price_variance: bool
-    has_special_sale: bool
-
-
-class RetailerDailyRetailPriceHistoryPoint(SQLModel):
-    retailer: RetailerPublic
-    observed_date: date
-    average_price_eur: Decimal | None
-    min_price_eur: Decimal | None
-    max_price_eur: Decimal | None
-    has_special_sale: bool
-
-
-class SimilarProductPublic(SQLModel):
-    product: ProductPublic
-    retailers: list[RetailerPublic]
-    latest_price_eur: Decimal | None
-    average_price_eur: Decimal | None
-    latest_observed_date: date | None
-    score: Decimal
 
 
 @router.get("/{product_id}/similar", response_model=list[SimilarProductPublic])

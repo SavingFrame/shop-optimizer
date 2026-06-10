@@ -2,32 +2,15 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter
-from sqlmodel import SQLModel, select
+from sqlmodel import select
 
 from app.api.deps import SessionDep
-from app.domains.products.models import Product, ProductPublic
+from app.domains.dashboard.schemas import PriceMover, PriceMoversPublic
+from app.domains.products.models import Product
 from app.domains.products.price_observation_daily import PriceObservationDaily
-from app.domains.products.retailers import Retailer, RetailerPublic
+from app.domains.products.retailers import Retailer
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-
-
-class PriceMover(SQLModel):
-    product: ProductPublic
-    retailer: RetailerPublic
-    current_date: date
-    previous_date: date
-    previous_price_eur: Decimal
-    current_price_eur: Decimal
-    absolute_change_eur: Decimal
-    percent_change: Decimal
-
-
-class PriceMoversPublic(SQLModel):
-    current_date: date | None
-    previous_date: date | None
-    price_drops: list[PriceMover]
-    price_increases: list[PriceMover]
 
 
 @router.get("/price-movers", response_model=PriceMoversPublic)

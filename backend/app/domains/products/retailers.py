@@ -41,7 +41,7 @@ class RetailerPublic(RetailerBase):
     id: uuid.UUID
 
 
-class ReailerEnum(enum.Enum):
+class RetailerEnum(enum.Enum):
     LIDL = RetailerPublic(name="Lidl", id=uuid.UUID("019dd1b1dae672fd975a29fe3fd69aa9"))
     SPAR = RetailerPublic(name="Spar", id=uuid.UUID("019dd1b1dafb7015973e90e630409a7a"))
     KAUFLAND = RetailerPublic(
